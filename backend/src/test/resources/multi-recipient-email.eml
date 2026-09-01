@@ -1,0 +1,9 @@
+From: Sender <sender@example.com>
+To: First Person <first@example.com>, Second Person <second@example.com>, Third Person <third@example.com>
+Subject: Multi recipient test
+Date: Fri, 04 Apr 2025 08:00:00 +0000
+Message-ID: <multi-000@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+
+Multiple recipients should be preserved.

@@ -1,0 +1,12 @@
+From: Sender Name <sender@example.com>
+To: Alice <alice@example.com>
+Cc: Bob <bob@example.com>, Carol <carol@example.com>
+Reply-To: Support <support@example.com>
+Subject: Follow-up case
+Date: Wed, 02 Apr 2025 09:10:11 +0200
+Message-ID: <cc-456@example.com>
+Return-Path: <bounce@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+
+Follow up message.
