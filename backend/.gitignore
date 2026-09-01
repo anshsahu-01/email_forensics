@@ -32,6 +32,11 @@ build/
 ### VS Code ###
 .vscode/
 
+# Ignore local environment files with secrets
+.env
+.env.*
+!.env.example
+
 # Ignore Spring Boot application properties
 src/main/resources/application.properties
 src/main/resources/application.yml
