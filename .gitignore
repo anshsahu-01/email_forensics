@@ -1,0 +1,99 @@
+# -----------------------------------------------------------------------------
+# OS / editor files
+# -----------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# -----------------------------------------------------------------------------
+# Java / Spring Boot
+# -----------------------------------------------------------------------------
+backend/target/
+backend/.classpath
+backend/.project
+backend/.settings/
+backend/.factorypath
+backend/.idea/
+backend/.gradle/
+backend/*.log
+backend/*.tmp
+
+# Maven wrapper generated files are intentionally kept in version control
+# if you want to keep them, do not ignore mvnw and mvnw.cmd
+
+# -----------------------------------------------------------------------------
+# Node / Next.js / Expo
+# -----------------------------------------------------------------------------
+node_modules/
+**/node_modules/
+.npm/
+.pnpm-store/
+.next/
+**/.next/
+expo-build-properties.json
+apps/mobile/.expo/
+apps/mobile/dist/
+apps/mobile/web-build/
+apps/mobile/.turbo/
+apps/web/.next/
+apps/web/out/
+apps/web/node_modules/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# -----------------------------------------------------------------------------
+# Python / AI service
+# -----------------------------------------------------------------------------
+ai-service/__pycache__/
+ai-service/.venv/
+ai-service/venv/
+ai-service/.pytest_cache/
+ai-service/*.pyc
+
+# -----------------------------------------------------------------------------
+# Database / local data
+# -----------------------------------------------------------------------------
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+
+# -----------------------------------------------------------------------------
+# Uploaded files / generated content
+# -----------------------------------------------------------------------------
+uploads/
+storage/
+attachments/
+artifacts/
+coverage/
+*.pem
+*.key
+*.crt
+
+# -----------------------------------------------------------------------------
+# Build / cache artifacts
+# -----------------------------------------------------------------------------
+.cache/
+.tmp/
+tmp/
+*.class
+*.war
+*.jar
+
+# -----------------------------------------------------------------------------
+# Git keep / misc
+# -----------------------------------------------------------------------------
+.gitkeep
