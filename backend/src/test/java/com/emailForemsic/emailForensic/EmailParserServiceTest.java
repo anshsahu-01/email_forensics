@@ -2,15 +2,10 @@ package com.emailForemsic.emailForensic;
 
 import com.emailForemsic.emailForensic.dto.EmailParsedResult;
 import com.emailForemsic.emailForensic.service.EmailParserService;
-import jakarta.mail.Session;
-import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.time.ZoneOffset;
-import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -93,42 +88,4 @@ class EmailParserServiceTest {
         assertThrows(IllegalArgumentException.class, () -> parserService.parseEml(null));
     }
 
-    @Test
-    void diagnosesProblematicEmailHeaders() throws Exception {
-        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream("problematic-email.eml")) {
-            assertNotNull(inputStream, "Missing diagnostic fixture: src/test/resources/problematic-email.eml");
-
-            MimeMessage message = new MimeMessage(Session.getInstance(new Properties()), inputStream);
-            EmailParsedResult result;
-            try (InputStream parserInput = getClass().getClassLoader().getResourceAsStream("problematic-email.eml")) {
-                assertNotNull(parserInput);
-                result = parserService.parseEml(parserInput);
-            }
-
-            String[] headers = {
-                "From", "To", "Cc", "Reply-To", "Subject", "Date", "Message-ID",
-                "Return-Path", "MIME-Version", "Content-Type", "Content-Transfer-Encoding"
-            };
-            for (String header : headers) {
-                System.out.printf("problematic-email header %s present=%s extracted=%s%n",
-                    header,
-                    message.getHeader(header) != null,
-                    extractedValue(result, header));
-            }
-        }
-    }
-
-    private boolean extractedValue(EmailParsedResult result, String header) {
-        return switch (header) {
-            case "From" -> result.getSenderFrom() != null;
-            case "To" -> result.getTo() != null;
-            case "Cc" -> result.getCc() != null;
-            case "Reply-To" -> result.getReplyTo() != null;
-            case "Subject" -> result.getSubject() != null;
-            case "Date" -> result.getDate() != null;
-            case "Message-ID" -> result.getMessageId() != null;
-            case "Return-Path" -> result.getReturnPath() != null;
-            default -> false;
-        };
-    }
 }
