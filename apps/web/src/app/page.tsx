@@ -1,34 +1,41 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { Upload, ShieldAlert, CheckCircle, FileText, Globe, RefreshCw } from 'lucide-react';
 
 interface EmailHeader {
-  subject: string;
-  senderFrom: string;
-  replyTo: string;
-  spfStatus: string;
-  dkimStatus: string;
-  dmarcStatus: string;
+  subject: string | null;
+  senderFrom: string | null;
+  to: string | null;
+  cc: string | null;
+  replyTo: string | null;
+  date: string | null;
+  messageId: string | null;
+  returnPath: string | null;
+  spfStatus: string | null;
+  dkimStatus: string | null;
+  dmarcStatus: string | null;
 }
 
 interface EmailIndicator {
-  type: string;
-  value: string;
+  type: string | null;
+  value: string | null;
+  details?: string | null;
   isp?: string;
   country?: string;
 }
 
 interface EmailCase {
   id: number;
-  fileName: string;
-  fileHash: string;
-  threatScore: number;
-  riskLevel: string;
-  aiSummary: string;
-  createdAt: string;
-  header: EmailHeader;
-  indicators: EmailIndicator[];
+  fileName: string | null;
+  fileHash: string | null;
+  analysisStatus: string | null;
+  threatScore: number | null;
+  riskLevel?: string | null;
+  aiSummary?: string | null;
+  createdAt: string | null;
+  header: EmailHeader | null;
+  indicators: EmailIndicator[] | null;
 }
 
 export default function ForensicDashboard() {
@@ -40,11 +47,9 @@ export default function ForensicDashboard() {
 
   const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api/v1';
 
-  useEffect(() => {
-    fetchHistory();
-  }, []);
+  const displayValue = (value: string | number | null | undefined) => value === null || value === undefined || value === '' ? '—' : String(value);
 
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/cases`);
       if (res.ok) {
@@ -54,7 +59,25 @@ export default function ForensicDashboard() {
     } catch (err) {
       console.error('Failed to load cases:', err);
     }
-  };
+  }, [API_URL]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadHistory = async () => {
+      try {
+        const res = await fetch(`${API_URL}/cases`);
+        if (active && res.ok) setHistory(await res.json());
+      } catch (err) {
+        console.error('Failed to load cases:', err);
+      }
+    };
+
+    void loadHistory();
+    return () => {
+      active = false;
+    };
+  }, [API_URL]);
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,18 +100,18 @@ export default function ForensicDashboard() {
       const data: EmailCase = await res.json();
       setCurrentCase(data);
       fetchHistory();
-    } catch (err: any) {
-      setError(err.message || 'Something went wrong');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string | null | undefined) => {
     const isPass = status?.toUpperCase() === 'PASS';
     return (
       <span className={`px-2 py-0.5 text-xs font-semibold rounded ${isPass ? 'bg-green-900/60 text-green-300' : 'bg-red-900/60 text-red-300'}`}>
-        {status || 'UNKNOWN'}
+        {displayValue(status)}
       </span>
     );
   };
@@ -173,17 +196,49 @@ export default function ForensicDashboard() {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-slate-400 text-xs">From</p>
-                    <p className="font-mono text-slate-200 truncate">{currentCase.header?.senderFrom || 'N/A'}</p>
+                    <p className="font-mono text-slate-200 truncate">{displayValue(currentCase.header?.senderFrom)}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 text-xs">To</p>
+                    <p className="font-mono text-slate-200 truncate">{displayValue(currentCase.header?.to)}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 text-xs">CC</p>
+                    <p className="font-mono text-slate-200 truncate">{displayValue(currentCase.header?.cc)}</p>
                   </div>
                   <div>
                     <p className="text-slate-400 text-xs">Reply-To</p>
-                    <p className="font-mono text-slate-200 truncate">{currentCase.header?.replyTo || 'None'}</p>
+                    <p className="font-mono text-slate-200 truncate">{displayValue(currentCase.header?.replyTo)}</p>
                   </div>
                   <div className="col-span-2">
                     <p className="text-slate-400 text-xs">SHA-256 Hash</p>
                     <p className="font-mono text-xs text-slate-300 break-all bg-slate-900 p-2 rounded mt-1">
-                      {currentCase.fileHash}
+                      {displayValue(currentCase.fileHash)}
                     </p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 text-xs">File name</p>
+                    <p className="font-mono text-slate-200 break-all">{displayValue(currentCase.fileName)}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 text-xs">Analysis status</p>
+                    <p className="text-slate-200">{displayValue(currentCase.analysisStatus)}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 text-xs">Threat score</p>
+                    <p className="text-slate-200">{displayValue(currentCase.threatScore)}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 text-xs">Date</p>
+                    <p className="font-mono text-slate-200 break-all">{displayValue(currentCase.header?.date)}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-slate-400 text-xs">Message-ID</p>
+                    <p className="font-mono text-xs text-slate-300 break-all">{displayValue(currentCase.header?.messageId)}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-slate-400 text-xs">Return-Path</p>
+                    <p className="font-mono text-xs text-slate-300 break-all">{displayValue(currentCase.header?.returnPath)}</p>
                   </div>
                 </div>
               </section>
@@ -219,11 +274,11 @@ export default function ForensicDashboard() {
                         <span className={`px-2 py-0.5 rounded font-bold ${ind.type === 'IP' ? 'bg-purple-900/50 text-purple-300' : 'bg-amber-900/50 text-amber-300'}`}>
                           {ind.type}
                         </span>
-                        <span className="text-slate-300 break-all">{ind.value}</span>
+                        <span className="text-slate-300 break-all">{displayValue(ind.value)}{ind.details ? ` (${ind.details})` : ''}</span>
                       </div>
                     ))
                   ) : (
-                    <p className="text-xs text-slate-500">No IoCs found in this file.</p>
+                    <p className="text-xs text-slate-500">—</p>
                   )}
                 </div>
               </section>
