@@ -1,0 +1,14 @@
+From: Sender <sender@example.com>
+Subject: Multipart URLs
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="url-boundary"
+
+--url-boundary
+Content-Type: text/plain; charset=UTF-8
+
+Plain link: https://example.com/shared.
+--url-boundary
+Content-Type: text/html; charset=UTF-8
+
+<html><body><a href="https://example.com/shared">Shared link</a><a href="https://html.example/path">HTML link</a></body></html>
+--url-boundary--

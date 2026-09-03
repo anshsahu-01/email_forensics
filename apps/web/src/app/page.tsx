@@ -77,6 +77,18 @@ export default function ForensicDashboard() {
     }
   })();
 
+  const urlIndicators = (currentCase?.indicators ?? []).filter((indicator) => indicator.type === 'URL');
+
+  const isIpBasedUrl = (value: string | null) => {
+    if (!value) return false;
+    try {
+      const host = new URL(value).hostname;
+      return /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host) || host.includes(':');
+    } catch {
+      return false;
+    }
+  };
+
   const fetchHistory = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/cases`);
@@ -307,6 +319,22 @@ export default function ForensicDashboard() {
                     {getStatusBadge(currentCase.header?.dmarcStatus)}
                   </div>
                 </div>
+              </section>
+
+              <section className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                <h3 className="text-md font-semibold mb-4">URL / IOC ({urlIndicators.length})</h3>
+                {urlIndicators.length > 0 ? (
+                  <div className="space-y-2">
+                    {urlIndicators.map((indicator, index) => (
+                      <div key={`${indicator.value ?? 'url'}-${index}`} className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-xs font-mono break-all">
+                        <span className="text-slate-300">{displayValue(indicator.value)}</span>
+                        {isIpBasedUrl(indicator.value) && <span className="ml-2 text-amber-300">IP host</span>}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">—</p>
+                )}
               </section>
 
               <section className="bg-slate-800 p-6 rounded-xl border border-slate-700">

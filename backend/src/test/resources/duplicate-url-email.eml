@@ -1,0 +1,5 @@
+From: Sender <sender@example.com>
+Subject: Duplicate URLs
+Content-Type: text/plain; charset=UTF-8
+
+https://example.com/path https://example.com/path, https://other.example/path.

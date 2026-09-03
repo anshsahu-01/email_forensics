@@ -3,6 +3,8 @@ package com.emailForemsic.emailForensic.service;
 import com.emailForemsic.emailForensic.dto.EmailParsedResult;
 import com.emailForemsic.emailForensic.dto.ReceivedHeaderInfo;
 import jakarta.mail.MessagingException;
+import jakarta.mail.Multipart;
+import jakarta.mail.Part;
 import jakarta.mail.Session;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
@@ -10,6 +12,9 @@ import jakarta.mail.internet.MimeUtility;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -19,6 +24,7 @@ import java.net.UnknownHostException;
 import java.util.Date;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
@@ -33,6 +39,7 @@ public class EmailParserService {
     private static final Pattern TIMESTAMP_PATTERN = Pattern.compile(";\\s*(.+?)\\s*$", Pattern.DOTALL);
     private static final Pattern AUTHENTICATION_RESULT_PATTERN = Pattern.compile("\\b(spf|dkim|dmarc)\\s*=\\s*(pass|fail|softfail|neutral|none|temperror|permerror|unknown)\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern RECEIVED_SPF_RESULT_PATTERN = Pattern.compile("^\\s*(pass|fail|softfail|neutral|none|temperror|permerror|unknown)\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern URL_PATTERN = Pattern.compile("https?://[^\\s<>\\\"']+", Pattern.CASE_INSENSITIVE);
 
     public EmailParsedResult parseEml(InputStream inputStream) {
         if (inputStream == null) {
@@ -57,11 +64,84 @@ public class EmailParserService {
             List<ReceivedHeaderInfo> receivedHeaders = parseReceivedHeaders(message);
             result.setReceivedHeaders(receivedHeaders);
             result.setOriginatingIp(findOriginatingIp(receivedHeaders));
+            result.setExtractedUrls(extractUrls(message));
         } catch (MessagingException e) {
             throw new IllegalArgumentException("Malformed .eml content: unable to parse message headers.", e);
         }
 
         return result;
+    }
+
+    private List<String> extractUrls(Part part) throws MessagingException {
+        LinkedHashSet<String> urls = new LinkedHashSet<>();
+        collectUrls(part, urls);
+        return new ArrayList<>(urls);
+    }
+
+    private void collectUrls(Part part, LinkedHashSet<String> urls) throws MessagingException {
+        if (Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition())) {
+            return;
+        }
+
+        Object content;
+        try {
+            content = part.getContent();
+        } catch (Exception e) {
+            return;
+        }
+
+        if (content instanceof Multipart multipart) {
+            for (int index = 0; index < multipart.getCount(); index++) {
+                collectUrls(multipart.getBodyPart(index), urls);
+            }
+            return;
+        }
+
+        if (!(content instanceof String text)) {
+            return;
+        }
+
+        String contentType = part.getContentType().toLowerCase(Locale.ROOT);
+        if (contentType.startsWith("text/html")) {
+            Document document = Jsoup.parse(text);
+            for (Element link : document.select("a[href]")) {
+                addNormalizedUrl(link.attr("abs:href"), urls);
+                addTextUrls(link.text(), urls);
+            }
+            addTextUrls(document.text(), urls);
+        } else if (contentType.startsWith("text/plain")) {
+            addTextUrls(text, urls);
+        }
+    }
+
+    private void addTextUrls(String text, LinkedHashSet<String> urls) {
+        Matcher matcher = URL_PATTERN.matcher(text);
+        while (matcher.find()) {
+            addNormalizedUrl(matcher.group(), urls);
+        }
+    }
+
+    private void addNormalizedUrl(String candidate, LinkedHashSet<String> urls) {
+        if (candidate == null || candidate.isBlank()) {
+            return;
+        }
+        String normalized = candidate.trim();
+        while (!normalized.isEmpty() && ".,;:)]}".indexOf(normalized.charAt(normalized.length() - 1)) >= 0) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        try {
+            java.net.URI uri = new java.net.URI(normalized);
+            String scheme = uri.getScheme();
+            if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+                return;
+            }
+            if (uri.getHost() == null || uri.getHost().isBlank()) {
+                return;
+            }
+            urls.add(normalized);
+        } catch (Exception e) {
+            // Ignore malformed individual URL candidates without failing the email parse.
+        }
     }
 
     /**

@@ -1,0 +1,6 @@
+From: Sender <sender@example.com>
+Subject: Plain URLs
+Content-Type: text/plain; charset=UTF-8
+
+Visit https://example.com/path?query=value#fragment and http://sub.example.com:8080/login.
+Also visit http://192.168.1.10/test.

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
 import java.time.Instant;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -249,6 +250,53 @@ class EmailParserServiceTest {
             assertEquals("::1", result.getReceivedHeaders().get(2).getFromIp());
             assertNull(result.getOriginatingIp());
         }
+    }
+
+    @Test
+    void extractsPlainTextUrlsAndPreservesUsefulComponents() throws Exception {
+        EmailParsedResult result = parseFixture("plain-url-email.eml");
+
+        assertEquals(List.of(
+                "https://example.com/path?query=value#fragment",
+                "http://sub.example.com:8080/login",
+                "http://192.168.1.10/test"
+        ), result.getExtractedUrls());
+    }
+
+    @Test
+    void extractsHtmlAnchorAndVisibleTextUrls() throws Exception {
+        EmailParsedResult result = parseFixture("html-url-email.eml");
+
+        assertEquals(List.of("https://example.com/welcome", "https://example.com/a%20b"), result.getExtractedUrls());
+    }
+
+    @Test
+    void deduplicatesUrlsInFirstSeenOrder() throws Exception {
+        EmailParsedResult result = parseFixture("duplicate-url-email.eml");
+
+        assertEquals(List.of("https://example.com/path", "https://other.example/path"), result.getExtractedUrls());
+    }
+
+    @Test
+    void deduplicatesTheSameUrlAcrossMultipartTextAndHtml() throws Exception {
+        EmailParsedResult result = parseFixture("multipart-url-email.eml");
+
+        assertEquals(List.of("https://example.com/shared", "https://html.example/path"), result.getExtractedUrls());
+    }
+
+    @Test
+    void ignoresMalformedUrlCandidates() throws Exception {
+        EmailParsedResult result = parseFixture("malformed-url-email.eml");
+
+        assertEquals(List.of("https://valid.example/path"), result.getExtractedUrls());
+    }
+
+    @Test
+    void returnsNoUrlsWhenEmailHasNoLinks() throws Exception {
+        EmailParsedResult result = parseFixture("no-url-email.eml");
+
+        assertNotNull(result.getExtractedUrls());
+        assertTrue(result.getExtractedUrls().isEmpty());
     }
 
 }

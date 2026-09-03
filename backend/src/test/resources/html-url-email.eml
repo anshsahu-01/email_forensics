@@ -1,0 +1,5 @@
+From: Sender <sender@example.com>
+Subject: HTML URLs
+Content-Type: text/html; charset=UTF-8
+
+<html><body><p>Read the <a href="https://example.com/welcome">welcome page</a>.</p><p>Encoded: https://example.com/a%20b.</p></body></html>

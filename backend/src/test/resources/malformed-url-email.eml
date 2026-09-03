@@ -1,0 +1,5 @@
+From: Sender <sender@example.com>
+Subject: Malformed URLs
+Content-Type: text/plain; charset=UTF-8
+
+Broken candidate: https:// and malformed://example.com. Valid: https://valid.example/path.

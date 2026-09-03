@@ -69,6 +69,7 @@ class EmailCaseServiceTest {
                     .byHost("mx.example.net")
                     .build()))
                 .originatingIp("203.0.113.25")
+                .extractedUrls(List.of("https://example.com/path", "http://192.168.1.10/test"))
                 .build();
 
         when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
@@ -98,6 +99,11 @@ class EmailCaseServiceTest {
         assertEquals(parsedResult.getOriginatingIp(), savedCase.getOriginatingIp());
         assertNotNull(savedCase.getReceivedHeaders());
         assertTrue(savedCase.getReceivedHeaders().contains("203.0.113.25"));
+        assertEquals(3, savedCase.getIndicators().size());
+        assertTrue(savedCase.getIndicators().stream().anyMatch(indicator ->
+            "URL".equals(indicator.getType()) && "https://example.com/path".equals(indicator.getValue())));
+        assertTrue(savedCase.getIndicators().stream().anyMatch(indicator ->
+            "URL".equals(indicator.getType()) && "http://192.168.1.10/test".equals(indicator.getValue())));
 
         ArgumentCaptor<EmailCase> captor = ArgumentCaptor.forClass(EmailCase.class);
         verify(caseRepository).save(captor.capture());

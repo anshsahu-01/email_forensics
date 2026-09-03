@@ -7,4 +7,4 @@ Authentication-Results: mx.example.com;
     dkim=pass header.d=example.com;
     dmarc=pass header.from=example.com
 
-Message body.
+Visit https://example.com/verify and https://example.com/verify.
