@@ -4,6 +4,8 @@ import com.emailForemsic.emailForensic.dto.EmailParsedResult;
 import com.emailForemsic.emailForensic.entity.EmailCase;
 import com.emailForemsic.emailForensic.entity.EmailHeader;
 import com.emailForemsic.emailForensic.entity.EmailIndicator;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.emailForemsic.emailForensic.repository.EmailCaseRepository;
 import com.emailForemsic.emailForensic.util.SHA256Util;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +18,8 @@ import java.time.LocalDateTime;
 
 @Service
 public class EmailCaseService {
+
+    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @Autowired
     private EmailParserService parserService;
@@ -43,6 +47,8 @@ public class EmailCaseService {
                     .fileHash(fileHash)
                     .analysisStatus("ANALYZED")
                     .threatScore(threatScore)
+                    .originatingIp(parsedResult.getOriginatingIp())
+                    .receivedHeaders(serializeReceivedHeaders(parsedResult))
                     .rawBody(parsedResult.getRawBody())
                     .createdAt(LocalDateTime.now())
                     .build();
@@ -86,5 +92,12 @@ public class EmailCaseService {
 
             return caseRepository.save(emailCase);
         }
+    }
+
+    private String serializeReceivedHeaders(EmailParsedResult parsedResult) throws JsonProcessingException {
+        if (parsedResult.getReceivedHeaders() == null) {
+            return null;
+        }
+        return objectMapper.writeValueAsString(parsedResult.getReceivedHeaders());
     }
 }

@@ -1,6 +1,7 @@
 package com.emailForemsic.emailForensic;
 
 import com.emailForemsic.emailForensic.dto.EmailParsedResult;
+import com.emailForemsic.emailForensic.dto.ReceivedHeaderInfo;
 import com.emailForemsic.emailForensic.service.EmailParserService;
 import org.junit.jupiter.api.Test;
 
@@ -86,6 +87,83 @@ class EmailParserServiceTest {
     @Test
     void parseEmlRejectsNullInput() {
         assertThrows(IllegalArgumentException.class, () -> parserService.parseEml(null));
+    }
+
+    @Test
+    void parsesMultipleReceivedHeadersInOriginalOrderAndFindsOriginatingIp() throws Exception {
+        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream("multiple-received-email.eml")) {
+            assertNotNull(inputStream);
+
+            EmailParsedResult result = parserService.parseEml(inputStream);
+
+            assertEquals(3, result.getReceivedHeaders().size());
+            assertEquals("internal.local", result.getReceivedHeaders().get(0).getFromHost());
+            assertEquals("192.168.1.20", result.getReceivedHeaders().get(0).getFromIp());
+            assertEquals("relay.example.net", result.getReceivedHeaders().get(0).getByHost());
+            assertEquals("198.51.100.10", result.getReceivedHeaders().get(0).getByIp());
+            assertEquals("sender.example.org", result.getReceivedHeaders().get(1).getFromHost());
+            assertEquals("203.0.113.25", result.getReceivedHeaders().get(1).getFromIp());
+            assertEquals(Instant.parse("2026-09-03T10:19:30Z"), result.getReceivedHeaders().get(1).getTimestamp());
+            assertEquals("203.0.113.25", result.getOriginatingIp());
+        }
+    }
+
+    @Test
+    void parsesPublicIpv6ReceivedAddress() throws Exception {
+        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream("ipv6-received-email.eml")) {
+            assertNotNull(inputStream);
+
+            EmailParsedResult result = parserService.parseEml(inputStream);
+
+            assertEquals(1, result.getReceivedHeaders().size());
+            ReceivedHeaderInfo received = result.getReceivedHeaders().get(0);
+            assertEquals("2001:db8::25", received.getFromIp());
+            assertEquals("2001:db8::25", result.getOriginatingIp());
+        }
+    }
+
+    @Test
+    void handlesEmailWithoutReceivedHeader() throws Exception {
+        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream("no-received-email.eml")) {
+            assertNotNull(inputStream);
+
+            EmailParsedResult result = parserService.parseEml(inputStream);
+
+            assertNotNull(result.getReceivedHeaders());
+            assertTrue(result.getReceivedHeaders().isEmpty());
+            assertNull(result.getOriginatingIp());
+        }
+    }
+
+    @Test
+    void toleratesMalformedReceivedHeader() throws Exception {
+        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream("malformed-received-email.eml")) {
+            assertNotNull(inputStream);
+
+            EmailParsedResult result = parserService.parseEml(inputStream);
+
+            assertEquals(1, result.getReceivedHeaders().size());
+            assertNull(result.getReceivedHeaders().get(0).getFromHost());
+            assertNull(result.getReceivedHeaders().get(0).getFromIp());
+            assertNull(result.getReceivedHeaders().get(0).getByHost());
+            assertNull(result.getReceivedHeaders().get(0).getTimestamp());
+            assertNull(result.getOriginatingIp());
+        }
+    }
+
+    @Test
+    void ignoresPrivateOnlyReceivedChain() throws Exception {
+        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream("private-only-received-email.eml")) {
+            assertNotNull(inputStream);
+
+            EmailParsedResult result = parserService.parseEml(inputStream);
+
+            assertEquals(3, result.getReceivedHeaders().size());
+            assertEquals("127.0.0.1", result.getReceivedHeaders().get(0).getFromIp());
+            assertEquals("10.0.0.8", result.getReceivedHeaders().get(1).getFromIp());
+            assertEquals("::1", result.getReceivedHeaders().get(2).getFromIp());
+            assertNull(result.getOriginatingIp());
+        }
     }
 
 }

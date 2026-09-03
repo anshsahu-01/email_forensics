@@ -1,6 +1,7 @@
 package com.emailForemsic.emailForensic;
 
 import com.emailForemsic.emailForensic.dto.EmailParsedResult;
+import com.emailForemsic.emailForensic.dto.ReceivedHeaderInfo;
 import com.emailForemsic.emailForensic.entity.EmailCase;
 import com.emailForemsic.emailForensic.repository.EmailCaseRepository;
 import com.emailForemsic.emailForensic.service.EmailCaseService;
@@ -14,9 +15,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
 import java.time.Instant;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -56,6 +59,13 @@ class EmailCaseServiceTest {
                 .date(Instant.parse("2025-04-01T12:34:56Z"))
                 .messageId("<basic-123@example.com>")
                 .returnPath("<bounce@example.com>")
+                .receivedHeaders(List.of(ReceivedHeaderInfo.builder()
+                    .rawValue("from sender.example.org [203.0.113.25] by mx.example.net")
+                    .fromHost("sender.example.org")
+                    .fromIp("203.0.113.25")
+                    .byHost("mx.example.net")
+                    .build()))
+                .originatingIp("203.0.113.25")
                 .build();
 
         when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
@@ -79,6 +89,9 @@ class EmailCaseServiceTest {
         assertEquals(parsedResult.getDate(), savedCase.getHeader().getDate());
         assertEquals(parsedResult.getMessageId(), savedCase.getHeader().getMessageId());
         assertEquals(parsedResult.getReturnPath(), savedCase.getHeader().getReturnPath());
+        assertEquals(parsedResult.getOriginatingIp(), savedCase.getOriginatingIp());
+        assertNotNull(savedCase.getReceivedHeaders());
+        assertTrue(savedCase.getReceivedHeaders().contains("203.0.113.25"));
 
         ArgumentCaptor<EmailCase> captor = ArgumentCaptor.forClass(EmailCase.class);
         verify(caseRepository).save(captor.capture());

@@ -25,6 +25,15 @@ interface EmailIndicator {
   country?: string;
 }
 
+interface ReceivedHeaderInfo {
+  rawValue?: string | null;
+  fromHost?: string | null;
+  fromIp?: string | null;
+  byHost?: string | null;
+  byIp?: string | null;
+  timestamp?: string | number | null;
+}
+
 interface EmailCase {
   id: number;
   fileName: string | null;
@@ -36,6 +45,8 @@ interface EmailCase {
   createdAt: string | null;
   header: EmailHeader | null;
   indicators: EmailIndicator[] | null;
+  originatingIp?: string | null;
+  receivedHeaders?: string | null;
 }
 
 export default function ForensicDashboard() {
@@ -48,6 +59,23 @@ export default function ForensicDashboard() {
   const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api/v1';
 
   const displayValue = (value: string | number | null | undefined) => value === null || value === undefined || value === '' ? '—' : String(value);
+
+  const displayTimestamp = (value: string | number | null | undefined) => {
+    if (value === null || value === undefined || value === '') return '—';
+    const timestamp = typeof value === 'number' ? value * 1000 : value;
+    const date = new Date(timestamp);
+    return Number.isNaN(date.getTime()) ? displayValue(value) : date.toISOString();
+  };
+
+  const receivedHeaders: ReceivedHeaderInfo[] = (() => {
+    if (!currentCase?.receivedHeaders) return [];
+    try {
+      const parsed = JSON.parse(currentCase.receivedHeaders);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  })();
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -240,6 +268,24 @@ export default function ForensicDashboard() {
                     <p className="text-slate-400 text-xs">Return-Path</p>
                     <p className="font-mono text-xs text-slate-300 break-all">{displayValue(currentCase.header?.returnPath)}</p>
                   </div>
+                </div>
+              </section>
+
+              <section className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                <h3 className="text-md font-semibold mb-4">Email Route</h3>
+                <div className="mb-4">
+                  <p className="text-slate-400 text-xs">Originating IP</p>
+                  <p className="font-mono text-slate-200 break-all">{displayValue(currentCase.originatingIp)}</p>
+                </div>
+                <div className="space-y-2">
+                  {receivedHeaders.length > 0 ? receivedHeaders.map((received, index) => (
+                    <div key={`${received.rawValue ?? 'received'}-${index}`} className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-xs">
+                      <p className="text-slate-400 mb-1">Hop {index + 1}</p>
+                      <p><span className="text-slate-400">From:</span> {displayValue(received.fromHost)} / {displayValue(received.fromIp)}</p>
+                      <p><span className="text-slate-400">By:</span> {displayValue(received.byHost)} / {displayValue(received.byIp)}</p>
+                      <p><span className="text-slate-400">Time:</span> {displayTimestamp(received.timestamp)}</p>
+                    </div>
+                  )) : <p className="text-xs text-slate-500">—</p>}
                 </div>
               </section>
 

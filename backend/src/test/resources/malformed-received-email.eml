@@ -1,0 +1,5 @@
+From: Sender <sender@example.com>
+Subject: Malformed received header
+Received: this is not a standard received header
+
+Message body.

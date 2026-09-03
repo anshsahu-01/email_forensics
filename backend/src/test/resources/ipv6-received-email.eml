@@ -1,0 +1,5 @@
+From: Sender <sender@example.com>
+Subject: IPv6 received
+Received: from mail.example.org (mail.example.org [2001:db8::25]) by mx.example.net with ESMTP; Thu, 3 Sep 2026 10:20:30 +0000
+
+Message body.

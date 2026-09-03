@@ -1,0 +1,9 @@
+From: Sender <sender@example.com>
+To: Recipient <recipient@example.com>
+Subject: Multiple received headers
+Message-ID: <multiple-received@example.com>
+Received: from internal.local (internal.local [192.168.1.20]) by relay.example.net [198.51.100.10] with ESMTP; Thu, 3 Sep 2026 10:20:30 +0000
+Received: from sender.example.org (sender.example.org [203.0.113.25]) by internal.local with ESMTP; Thu, 3 Sep 2026 10:19:30 +0000
+Received: from workstation.local (workstation.local [10.0.0.8]) by sender.example.org with ESMTP; Thu, 3 Sep 2026 10:18:30 +0000
+
+Message body.

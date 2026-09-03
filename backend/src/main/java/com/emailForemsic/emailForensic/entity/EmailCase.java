@@ -25,6 +25,11 @@ public class EmailCase {
     private String analysisStatus;
     private Integer threatScore;
 
+    private String originatingIp;
+
+    @Column(columnDefinition = "TEXT")
+    private String receivedHeaders;
+
     @Column(columnDefinition = "TEXT")
     private String rawBody;
 

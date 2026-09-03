@@ -25,7 +25,7 @@ public class EmailParsedResult {
     private String dkimStatus;
     private String dmarcStatus;
     private String rawBody;
-    private List<String> receivedHeaders;
+    private List<ReceivedHeaderInfo> receivedHeaders;
     private List<String> extractedUrls;
     private String originatingIp;
 }
