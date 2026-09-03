@@ -1,0 +1,5 @@
+From: Sender <sender@example.com>
+Subject: Authentication mixed
+Authentication-Results: mx.example.com; spf=PASS smtp.mailfrom=example.com; dkim=Fail header.d=evil.example; dmarc=fail header.from=example.com
+
+Message body.

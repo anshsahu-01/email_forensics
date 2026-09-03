@@ -31,6 +31,8 @@ public class EmailParserService {
     private static final Pattern FROM_BY_PATTERN = Pattern.compile("^from\\s+(.+?)(?:\\s+by\\s+(.+?))?(?:\\s+with\\s|\\s+id\\s|\\s+;|$)", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
     private static final Pattern IP_PATTERN = Pattern.compile("(?i)(?<![0-9a-f:])(?:[0-9]{1,3}(?:\\.[0-9]{1,3}){3}|[0-9a-f]*:[0-9a-f:]+)(?![0-9a-f:])");
     private static final Pattern TIMESTAMP_PATTERN = Pattern.compile(";\\s*(.+?)\\s*$", Pattern.DOTALL);
+    private static final Pattern AUTHENTICATION_RESULT_PATTERN = Pattern.compile("\\b(spf|dkim|dmarc)\\s*=\\s*(pass|fail|softfail|neutral|none|temperror|permerror|unknown)\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern RECEIVED_SPF_RESULT_PATTERN = Pattern.compile("^\\s*(pass|fail|softfail|neutral|none|temperror|permerror|unknown)\\b", Pattern.CASE_INSENSITIVE);
 
     public EmailParsedResult parseEml(InputStream inputStream) {
         if (inputStream == null) {
@@ -51,6 +53,7 @@ public class EmailParserService {
             result.setDate(readSentDate(message));
             result.setMessageId(readSingleHeaderValue(message, "Message-ID"));
             result.setReturnPath(readSingleHeaderValue(message, "Return-Path"));
+            readAuthenticationResults(message, result);
             List<ReceivedHeaderInfo> receivedHeaders = parseReceivedHeaders(message);
             result.setReceivedHeaders(receivedHeaders);
             result.setOriginatingIp(findOriginatingIp(receivedHeaders));
@@ -59,6 +62,57 @@ public class EmailParserService {
         }
 
         return result;
+    }
+
+    /**
+     * Reads authentication evidence carried by the message headers only. This does not perform
+     * DNS lookups, SPF policy evaluation, or cryptographic DKIM verification. Authentication-Results
+     * entries are considered in header order and the first valid result for each mechanism wins.
+     */
+    private void readAuthenticationResults(MimeMessage message, EmailParsedResult result) throws MessagingException {
+        String spfStatus = null;
+        String dkimStatus = null;
+        String dmarcStatus = null;
+        String[] authenticationHeaders = message.getHeader("Authentication-Results");
+        if (authenticationHeaders != null) {
+            for (String headerValue : authenticationHeaders) {
+                if (headerValue == null) {
+                    continue;
+                }
+                Matcher matcher = AUTHENTICATION_RESULT_PATTERN.matcher(headerValue);
+                while (matcher.find()) {
+                    String mechanism = matcher.group(1).toLowerCase(Locale.ROOT);
+                    String status = matcher.group(2).toLowerCase(Locale.ROOT);
+                    if (mechanism.equals("spf") && spfStatus == null) {
+                        spfStatus = status;
+                    } else if (mechanism.equals("dkim") && dkimStatus == null) {
+                        dkimStatus = status;
+                    } else if (mechanism.equals("dmarc") && dmarcStatus == null) {
+                        dmarcStatus = status;
+                    }
+                }
+            }
+        }
+
+        if (spfStatus == null) {
+            String[] receivedSpfHeaders = message.getHeader("Received-SPF");
+            if (receivedSpfHeaders != null) {
+                for (String headerValue : receivedSpfHeaders) {
+                    if (headerValue == null) {
+                        continue;
+                    }
+                    Matcher matcher = RECEIVED_SPF_RESULT_PATTERN.matcher(headerValue);
+                    if (matcher.find()) {
+                        spfStatus = matcher.group(1).toLowerCase(Locale.ROOT);
+                        break;
+                    }
+                }
+            }
+        }
+
+        result.setSpfStatus(spfStatus == null ? "none" : spfStatus);
+        result.setDkimStatus(dkimStatus == null ? "none" : dkimStatus);
+        result.setDmarcStatus(dmarcStatus == null ? "none" : dmarcStatus);
     }
 
     private List<ReceivedHeaderInfo> parseReceivedHeaders(MimeMessage message) throws MessagingException {

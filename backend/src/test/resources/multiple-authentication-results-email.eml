@@ -1,0 +1,7 @@
+From: Sender <sender@example.com>
+Subject: Multiple authentication results
+Authentication-Results: first.example; spf=pass; dkim=none
+Authentication-Results: second.example; spf=fail; dkim=pass; dmarc=pass
+Authentication-Results: third.example; dmarc=fail
+
+Message body.

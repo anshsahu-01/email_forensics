@@ -90,6 +90,91 @@ class EmailParserServiceTest {
     }
 
     @Test
+    void parsesAllAuthenticationResultsAsLowercase() throws Exception {
+        EmailParsedResult result = parseFixture("auth-all-pass-email.eml");
+
+        assertEquals("pass", result.getSpfStatus());
+        assertEquals("pass", result.getDkimStatus());
+        assertEquals("pass", result.getDmarcStatus());
+    }
+
+    @Test
+    void parsesMixedAuthenticationResultsIndependently() throws Exception {
+        EmailParsedResult result = parseFixture("auth-mixed-email.eml");
+
+        assertEquals("pass", result.getSpfStatus());
+        assertEquals("fail", result.getDkimStatus());
+        assertEquals("fail", result.getDmarcStatus());
+    }
+
+    @Test
+    void usesReceivedSpfWhenAuthenticationResultsHasNoSpf() throws Exception {
+        EmailParsedResult result = parseFixture("received-spf-fallback-email.eml");
+
+        assertEquals("pass", result.getSpfStatus());
+        assertEquals("none", result.getDkimStatus());
+        assertEquals("none", result.getDmarcStatus());
+    }
+
+    @Test
+    void prefersAuthenticationResultsSpfOverReceivedSpf() throws Exception {
+        EmailParsedResult result = parseFixture("auth-spf-priority-email.eml");
+
+        assertEquals("pass", result.getSpfStatus());
+    }
+
+    @Test
+    void doesNotTreatDkimSignatureAsVerification() throws Exception {
+        EmailParsedResult result = parseFixture("dkim-signature-only-email.eml");
+
+        assertNotEquals("pass", result.getDkimStatus());
+        assertEquals("none", result.getDkimStatus());
+    }
+
+    @Test
+    void defaultsMissingAuthenticationHeadersToNone() throws Exception {
+        EmailParsedResult result = parseFixture("no-authentication-email.eml");
+
+        assertEquals("none", result.getSpfStatus());
+        assertEquals("none", result.getDkimStatus());
+        assertEquals("none", result.getDmarcStatus());
+    }
+
+    @Test
+    void selectsFirstValidAuthenticationResultPerMechanism() throws Exception {
+        EmailParsedResult result = parseFixture("multiple-authentication-results-email.eml");
+
+        assertEquals("pass", result.getSpfStatus());
+        assertEquals("none", result.getDkimStatus());
+        assertEquals("pass", result.getDmarcStatus());
+    }
+
+    @Test
+    void acceptsMixedCaseAuthenticationResults() throws Exception {
+        EmailParsedResult result = parseFixture("mixed-case-authentication-email.eml");
+
+        assertEquals("pass", result.getSpfStatus());
+        assertEquals("fail", result.getDkimStatus());
+        assertEquals("pass", result.getDmarcStatus());
+    }
+
+    @Test
+    void ignoresMalformedAuthenticationEntriesWithoutBreakingParsing() throws Exception {
+        EmailParsedResult result = parseFixture("malformed-authentication-email.eml");
+
+        assertEquals("none", result.getSpfStatus());
+        assertEquals("none", result.getDkimStatus());
+        assertEquals("pass", result.getDmarcStatus());
+    }
+
+    private EmailParsedResult parseFixture(String fixture) throws Exception {
+        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(fixture)) {
+            assertNotNull(inputStream);
+            return parserService.parseEml(inputStream);
+        }
+    }
+
+    @Test
     void parsesMultipleReceivedHeadersInOriginalOrderAndFindsOriginatingIp() throws Exception {
         try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream("multiple-received-email.eml")) {
             assertNotNull(inputStream);

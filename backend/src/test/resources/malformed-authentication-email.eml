@@ -1,0 +1,5 @@
+From: Sender <sender@example.com>
+Subject: Malformed authentication results
+Authentication-Results: mx.example.com; spf=bogus; dkim=; dmarc=pass; malformed-entry
+
+Message body.

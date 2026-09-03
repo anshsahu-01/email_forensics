@@ -1,0 +1,5 @@
+From: Sender <sender@example.com>
+Subject: DKIM signature without result
+DKIM-Signature: v=1; a=rsa-sha256; d=example.com; s=selector; bh=abc; b=def
+
+Message body.

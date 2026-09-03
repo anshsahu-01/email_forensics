@@ -1,0 +1,5 @@
+From: Sender <sender@example.com>
+Subject: Mixed case authentication results
+Authentication-Results: mx.example.com; SPF=PASS; DKIM=Fail; DMARC=PASS
+
+Message body.

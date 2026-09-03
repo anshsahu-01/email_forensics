@@ -291,7 +291,7 @@ export default function ForensicDashboard() {
 
               <section className="bg-slate-800 p-6 rounded-xl border border-slate-700">
                 <h3 className="text-md font-semibold mb-4 flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-400" /> Authentication Results
+                  <CheckCircle className="w-4 h-4 text-green-400" /> Authentication Checks
                 </h3>
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div className="bg-slate-900 p-3 rounded-lg border border-slate-800">

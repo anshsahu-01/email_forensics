@@ -59,6 +59,9 @@ class EmailCaseServiceTest {
                 .date(Instant.parse("2025-04-01T12:34:56Z"))
                 .messageId("<basic-123@example.com>")
                 .returnPath("<bounce@example.com>")
+                .spfStatus("pass")
+                .dkimStatus("fail")
+                .dmarcStatus("none")
                 .receivedHeaders(List.of(ReceivedHeaderInfo.builder()
                     .rawValue("from sender.example.org [203.0.113.25] by mx.example.net")
                     .fromHost("sender.example.org")
@@ -89,6 +92,9 @@ class EmailCaseServiceTest {
         assertEquals(parsedResult.getDate(), savedCase.getHeader().getDate());
         assertEquals(parsedResult.getMessageId(), savedCase.getHeader().getMessageId());
         assertEquals(parsedResult.getReturnPath(), savedCase.getHeader().getReturnPath());
+        assertEquals(parsedResult.getSpfStatus(), savedCase.getHeader().getSpfStatus());
+        assertEquals(parsedResult.getDkimStatus(), savedCase.getHeader().getDkimStatus());
+        assertEquals(parsedResult.getDmarcStatus(), savedCase.getHeader().getDmarcStatus());
         assertEquals(parsedResult.getOriginatingIp(), savedCase.getOriginatingIp());
         assertNotNull(savedCase.getReceivedHeaders());
         assertTrue(savedCase.getReceivedHeaders().contains("203.0.113.25"));

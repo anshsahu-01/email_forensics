@@ -1,0 +1,10 @@
+From: Sender <sender@example.com>
+To: Recipient <recipient@example.com>
+Subject: Authentication all pass
+Received: from sender.example.org (sender.example.org [203.0.113.25]) by mx.example.com with ESMTP; Thu, 3 Sep 2026 10:20:30 +0000
+Authentication-Results: mx.example.com;
+    spf=pass smtp.mailfrom=example.com;
+    dkim=pass header.d=example.com;
+    dmarc=pass header.from=example.com
+
+Message body.
