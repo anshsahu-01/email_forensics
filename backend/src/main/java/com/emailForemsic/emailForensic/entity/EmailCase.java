@@ -33,6 +33,11 @@ public class EmailCase {
     @Column(columnDefinition = "TEXT")
     private String rawBody;
 
+    private String spoofingRisk;
+
+    @Column(columnDefinition = "TEXT")
+    private String spoofingFindings;
+
     private LocalDateTime createdAt;
 
     @JsonManagedReference

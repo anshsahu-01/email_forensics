@@ -230,4 +230,150 @@ class EmailCaseServiceTest {
         assertEquals("UNKNOWN", ipIndicator.getAbuseIpDbStatus());
         assertNull(ipIndicator.getAbuseConfidenceScore());
     }
+
+    // -----------------------------------------------------------------------
+    // Sender Spoofing Risk Tests
+    // -----------------------------------------------------------------------
+
+    private EmailParsedResult buildSpoofingParsedResult(String from, String replyTo, String returnPath, String dmarc, String spf, String dkim) {
+        return EmailParsedResult.builder()
+                .senderFrom(from)
+                .replyTo(replyTo)
+                .returnPath(returnPath)
+                .dmarcStatus(dmarc)
+                .spfStatus(spf)
+                .dkimStatus(dkim)
+                .originatingIp(null)
+                .build();
+    }
+
+    @Test
+    void spoofing_matchingFromAndReplyTo_noMismatch() throws Exception {
+        EmailParsedResult parsed = buildSpoofingParsedResult("sender@example.com", "sender@example.com", "sender@example.com", "pass", "pass", "pass");
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsed);
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+        assertEquals("LOW", savedCase.getSpoofingRisk());
+        assertEquals("[]", savedCase.getSpoofingFindings());
+    }
+
+    @Test
+    void spoofing_fromReplyToMismatch_dmarcFail() throws Exception {
+        EmailParsedResult parsed = buildSpoofingParsedResult("sender@example.com", "attacker@other.com", "sender@example.com", "fail", "pass", "pass");
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsed);
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+        assertEquals("HIGH", savedCase.getSpoofingRisk());
+        assertTrue(savedCase.getSpoofingFindings().contains("FROM_REPLY_TO_MISMATCH"));
+    }
+
+    @Test
+    void spoofing_fromReturnPathMismatch_dmarcFail() throws Exception {
+        EmailParsedResult parsed = buildSpoofingParsedResult("sender@example.com", "sender@example.com", "attacker@other.com", "fail", "pass", "pass");
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsed);
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+        assertEquals("HIGH", savedCase.getSpoofingRisk());
+        assertTrue(savedCase.getSpoofingFindings().contains("FROM_RETURN_PATH_MISMATCH"));
+    }
+
+    @Test
+    void spoofing_bothMismatches() throws Exception {
+        EmailParsedResult parsed = buildSpoofingParsedResult("sender@example.com", "attacker1@other.com", "attacker2@other.com", "pass", "pass", "pass");
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsed);
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+        assertEquals("HIGH", savedCase.getSpoofingRisk()); // both mismatches = HIGH regardless of DMARC
+        assertTrue(savedCase.getSpoofingFindings().contains("FROM_REPLY_TO_MISMATCH"));
+        assertTrue(savedCase.getSpoofingFindings().contains("FROM_RETURN_PATH_MISMATCH"));
+    }
+
+    @Test
+    void spoofing_missingReplyTo_noMismatch() throws Exception {
+        EmailParsedResult parsed = buildSpoofingParsedResult("sender@example.com", null, "sender@example.com", "pass", "pass", "pass");
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsed);
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+        assertEquals("LOW", savedCase.getSpoofingRisk());
+        assertEquals("[]", savedCase.getSpoofingFindings());
+    }
+
+    @Test
+    void spoofing_missingReturnPath_noMismatch() throws Exception {
+        EmailParsedResult parsed = buildSpoofingParsedResult("sender@example.com", "sender@example.com", null, "pass", "pass", "pass");
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsed);
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+        assertEquals("LOW", savedCase.getSpoofingRisk());
+        assertEquals("[]", savedCase.getSpoofingFindings());
+    }
+
+    @Test
+    void spoofing_malformedSenderAddress() throws Exception {
+        EmailParsedResult parsed = buildSpoofingParsedResult("invalid-email", null, null, "pass", "pass", "pass");
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsed);
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+        assertEquals("UNKNOWN", savedCase.getSpoofingRisk());
+        assertEquals("[]", savedCase.getSpoofingFindings());
+    }
+
+    @Test
+    void spoofing_dmarcPassOneMismatch_isMedium() throws Exception {
+        EmailParsedResult parsed = buildSpoofingParsedResult("sender@example.com", "attacker@other.com", "sender@example.com", "pass", "pass", "pass");
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsed);
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+        assertEquals("MEDIUM", savedCase.getSpoofingRisk());
+        assertTrue(savedCase.getSpoofingFindings().contains("FROM_REPLY_TO_MISMATCH"));
+    }
+
+    @Test
+    void spoofing_dmarcUnknownOneMismatch_isHigh() throws Exception {
+        EmailParsedResult parsed = buildSpoofingParsedResult("sender@example.com", "attacker@other.com", "sender@example.com", "unknown", "pass", "pass");
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsed);
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+        assertEquals("HIGH", savedCase.getSpoofingRisk());
+    }
+
+    @Test
+    void spoofing_noMismatchNormalAuth_isLow() throws Exception {
+        EmailParsedResult parsed = buildSpoofingParsedResult("sender@example.com", "sender@example.com", "sender@example.com", "pass", "pass", "pass");
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsed);
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+        assertEquals("LOW", savedCase.getSpoofingRisk());
+    }
+
+    @Test
+    void spoofing_insufficientData_isUnknown() throws Exception {
+        EmailParsedResult parsed = buildSpoofingParsedResult(null, null, null, "unknown", "unknown", "unknown");
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsed);
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+        assertEquals("UNKNOWN", savedCase.getSpoofingRisk());
+    }
+
+    @Test
+    void spoofing_existingEmailAnalysisPersistsSuccessfully() throws Exception {
+        EmailParsedResult parsed = buildSpoofingParsedResult("PayPal Support <support@paypal.com>", "support@paypal.com, feedback@paypal.com", "bounces@paypal.com", "pass", "pass", "pass");
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsed);
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+        assertEquals("LOW", savedCase.getSpoofingRisk());
+        assertEquals("[]", savedCase.getSpoofingFindings());
+    }
 }
