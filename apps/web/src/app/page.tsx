@@ -21,6 +21,11 @@ interface EmailIndicator {
   type: string | null;
   value: string | null;
   details?: string | null;
+  virusTotalStatus?: string | null;
+  virusTotalMalicious?: number | null;
+  virusTotalSuspicious?: number | null;
+  virusTotalHarmless?: number | null;
+  virusTotalUndetected?: number | null;
   isp?: string;
   country?: string;
 }
@@ -86,6 +91,16 @@ export default function ForensicDashboard() {
       return /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host) || host.includes(':');
     } catch {
       return false;
+    }
+  };
+
+  const virusTotalStatusClass = (status: string | null | undefined) => {
+    switch (status?.toUpperCase()) {
+      case 'MALICIOUS': return 'text-red-400';
+      case 'SUSPICIOUS': return 'text-amber-300';
+      case 'CLEAN': return 'text-green-400';
+      case 'ERROR': return 'text-red-300';
+      default: return 'text-slate-300';
     }
   };
 
@@ -329,6 +344,13 @@ export default function ForensicDashboard() {
                       <div key={`${indicator.value ?? 'url'}-${index}`} className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-xs font-mono break-all">
                         <span className="text-slate-300">{displayValue(indicator.value)}</span>
                         {isIpBasedUrl(indicator.value) && <span className="ml-2 text-amber-300">IP host</span>}
+                        <div className="mt-2 font-sans text-slate-400">
+                          VirusTotal: <span className={virusTotalStatusClass(indicator.virusTotalStatus)}>{displayValue(indicator.virusTotalStatus)}</span>
+                          <span className="ml-3">Malicious: {displayValue(indicator.virusTotalMalicious)}</span>
+                          <span className="ml-3">Suspicious: {displayValue(indicator.virusTotalSuspicious)}</span>
+                          <span className="ml-3">Harmless: {displayValue(indicator.virusTotalHarmless)}</span>
+                          <span className="ml-3">Undetected: {displayValue(indicator.virusTotalUndetected)}</span>
+                        </div>
                       </div>
                     ))}
                   </div>

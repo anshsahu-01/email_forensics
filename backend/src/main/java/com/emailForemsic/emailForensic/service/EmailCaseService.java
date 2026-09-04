@@ -1,6 +1,7 @@
 package com.emailForemsic.emailForensic.service;
 
 import com.emailForemsic.emailForensic.dto.EmailParsedResult;
+import com.emailForemsic.emailForensic.dto.VirusTotalReputationResult;
 import com.emailForemsic.emailForensic.entity.EmailCase;
 import com.emailForemsic.emailForensic.entity.EmailHeader;
 import com.emailForemsic.emailForensic.entity.EmailIndicator;
@@ -29,6 +30,9 @@ public class EmailCaseService {
 
     @Autowired
     private EmailCaseRepository caseRepository;
+
+    @Autowired
+    private VirusTotalService virusTotalService;
 
     public EmailCase processAndSaveEml(MultipartFile file) throws Exception {
         byte[] fileBytes = file.getBytes();
@@ -86,6 +90,17 @@ public class EmailCaseService {
                             .value(url)
                             .details("Extracted from email body")
                             .build();
+                        VirusTotalReputationResult reputation;
+                        try {
+                            reputation = virusTotalService.checkUrl(url);
+                        } catch (RuntimeException exception) {
+                            reputation = VirusTotalReputationResult.builder().status("ERROR").build();
+                        }
+                        urlIndicator.setVirusTotalStatus(reputation.getStatus());
+                        urlIndicator.setVirusTotalMalicious(reputation.getMalicious());
+                        urlIndicator.setVirusTotalSuspicious(reputation.getSuspicious());
+                        urlIndicator.setVirusTotalHarmless(reputation.getHarmless());
+                        urlIndicator.setVirusTotalUndetected(reputation.getUndetected());
                     emailCase.addIndicator(urlIndicator);
                 }
             }

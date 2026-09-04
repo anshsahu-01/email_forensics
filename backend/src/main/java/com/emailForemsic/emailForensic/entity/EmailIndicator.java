@@ -20,6 +20,12 @@ public class EmailIndicator {
     private String value;
     private String details;
 
+    private String virusTotalStatus;
+    private Integer virusTotalMalicious;
+    private Integer virusTotalSuspicious;
+    private Integer virusTotalHarmless;
+    private Integer virusTotalUndetected;
+
     @JsonBackReference
     @ManyToOne
     @JoinColumn(name = "case_id")

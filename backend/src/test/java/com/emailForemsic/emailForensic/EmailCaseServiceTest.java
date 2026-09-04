@@ -2,11 +2,13 @@ package com.emailForemsic.emailForensic;
 
 import com.emailForemsic.emailForensic.dto.EmailParsedResult;
 import com.emailForemsic.emailForensic.dto.ReceivedHeaderInfo;
+import com.emailForemsic.emailForensic.dto.VirusTotalReputationResult;
 import com.emailForemsic.emailForensic.entity.EmailCase;
 import com.emailForemsic.emailForensic.repository.EmailCaseRepository;
 import com.emailForemsic.emailForensic.service.EmailCaseService;
 import com.emailForemsic.emailForensic.service.EmailParserService;
 import com.emailForemsic.emailForensic.service.GeoLocationService;
+import com.emailForemsic.emailForensic.service.VirusTotalService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -27,6 +29,7 @@ class EmailCaseServiceTest {
 
     private EmailParserService parserService;
     private GeoLocationService geoLocationService;
+    private VirusTotalService virusTotalService;
     private EmailCaseRepository caseRepository;
     private EmailCaseService emailCaseService;
 
@@ -34,11 +37,13 @@ class EmailCaseServiceTest {
     void setUp() throws Exception {
         parserService = mock(EmailParserService.class);
         geoLocationService = mock(GeoLocationService.class);
+        virusTotalService = mock(VirusTotalService.class);
         caseRepository = mock(EmailCaseRepository.class);
         emailCaseService = new EmailCaseService();
 
         setField(emailCaseService, "parserService", parserService);
         setField(emailCaseService, "geoLocationService", geoLocationService);
+        setField(emailCaseService, "virusTotalService", virusTotalService);
         setField(emailCaseService, "caseRepository", caseRepository);
     }
 
@@ -73,6 +78,8 @@ class EmailCaseServiceTest {
                 .build();
 
         when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+        when(virusTotalService.checkUrl(any(String.class))).thenReturn(VirusTotalReputationResult.builder()
+            .status("CLEAN").malicious(0).suspicious(0).harmless(5).undetected(2).build());
         when(caseRepository.save(any(EmailCase.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         MultipartFile file = new MockMultipartFile(
@@ -104,6 +111,9 @@ class EmailCaseServiceTest {
             "URL".equals(indicator.getType()) && "https://example.com/path".equals(indicator.getValue())));
         assertTrue(savedCase.getIndicators().stream().anyMatch(indicator ->
             "URL".equals(indicator.getType()) && "http://192.168.1.10/test".equals(indicator.getValue())));
+        assertTrue(savedCase.getIndicators().stream().filter(indicator -> "URL".equals(indicator.getType()))
+            .allMatch(indicator -> "CLEAN".equals(indicator.getVirusTotalStatus())));
+        verify(virusTotalService, times(2)).checkUrl(any(String.class));
 
         ArgumentCaptor<EmailCase> captor = ArgumentCaptor.forClass(EmailCase.class);
         verify(caseRepository).save(captor.capture());
