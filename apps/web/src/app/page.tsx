@@ -26,6 +26,10 @@ interface EmailIndicator {
   virusTotalSuspicious?: number | null;
   virusTotalHarmless?: number | null;
   virusTotalUndetected?: number | null;
+  abuseIpDbStatus?: string | null;
+  abuseConfidenceScore?: number | null;
+  totalReports?: number | null;
+  lastReportedAt?: string | null;
   isp?: string;
   country?: string;
 }
@@ -101,6 +105,16 @@ export default function ForensicDashboard() {
       case 'CLEAN': return 'text-green-400';
       case 'ERROR': return 'text-red-300';
       default: return 'text-slate-300';
+    }
+  };
+
+  const abuseIpDbStatusClass = (status: string | null | undefined) => {
+    switch (status?.toUpperCase()) {
+      case 'MALICIOUS': return 'text-red-400';
+      case 'SUSPICIOUS': return 'text-amber-300';
+      case 'CLEAN': return 'text-green-400';
+      case 'ERROR': return 'text-red-300';
+      default: return 'text-slate-400';
     }
   };
 
@@ -366,11 +380,29 @@ export default function ForensicDashboard() {
                 <div className="space-y-2">
                   {currentCase.indicators && currentCase.indicators.length > 0 ? (
                     currentCase.indicators.map((ind, idx) => (
-                      <div key={idx} className="flex items-center justify-between bg-slate-900 p-3 rounded-lg border border-slate-800 text-xs font-mono">
-                        <span className={`px-2 py-0.5 rounded font-bold ${ind.type === 'IP' ? 'bg-purple-900/50 text-purple-300' : 'bg-amber-900/50 text-amber-300'}`}>
-                          {ind.type}
-                        </span>
-                        <span className="text-slate-300 break-all">{displayValue(ind.value)}{ind.details ? ` (${ind.details})` : ''}</span>
+                      <div key={idx} className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-xs font-mono">
+                        <div className="flex items-center justify-between">
+                          <span className={`px-2 py-0.5 rounded font-bold ${ind.type === 'IP' ? 'bg-purple-900/50 text-purple-300' : 'bg-amber-900/50 text-amber-300'}`}>
+                            {ind.type}
+                          </span>
+                          <span className="text-slate-300 break-all">{displayValue(ind.value)}{ind.details ? ` (${ind.details})` : ''}</span>
+                        </div>
+                        {ind.type === 'IP' && (
+                          <div className="mt-2 font-sans text-slate-400 space-y-0.5">
+                            <div>
+                              AbuseIPDB: <span className={abuseIpDbStatusClass(ind.abuseIpDbStatus)}>{displayValue(ind.abuseIpDbStatus)}</span>
+                              {ind.abuseConfidenceScore != null && (
+                                <span className="ml-3">Confidence: {ind.abuseConfidenceScore}%</span>
+                              )}
+                              {ind.totalReports != null && (
+                                <span className="ml-3">Reports: {ind.totalReports}</span>
+                              )}
+                            </div>
+                            {ind.lastReportedAt && (
+                              <div>Last reported: <span className="text-slate-300">{ind.lastReportedAt}</span></div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))
                   ) : (

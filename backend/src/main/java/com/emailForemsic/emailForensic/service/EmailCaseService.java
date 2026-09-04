@@ -1,5 +1,6 @@
 package com.emailForemsic.emailForensic.service;
 
+import com.emailForemsic.emailForensic.dto.AbuseIpDbResult;
 import com.emailForemsic.emailForensic.dto.EmailParsedResult;
 import com.emailForemsic.emailForensic.dto.VirusTotalReputationResult;
 import com.emailForemsic.emailForensic.entity.EmailCase;
@@ -33,6 +34,9 @@ public class EmailCaseService {
 
     @Autowired
     private VirusTotalService virusTotalService;
+
+    @Autowired
+    private AbuseIpDbService abuseIpDbService;
 
     public EmailCase processAndSaveEml(MultipartFile file) throws Exception {
         byte[] fileBytes = file.getBytes();
@@ -80,6 +84,19 @@ public class EmailCaseService {
                         .value(parsedResult.getOriginatingIp())
                         .details(geoInfo)
                         .build();
+
+                // Enrich with AbuseIPDB — non-fatal; failure sets status=ERROR on indicator
+                AbuseIpDbResult abuseResult;
+                try {
+                    abuseResult = abuseIpDbService.checkIp(parsedResult.getOriginatingIp());
+                } catch (RuntimeException ex) {
+                    abuseResult = AbuseIpDbResult.builder().status("ERROR").build();
+                }
+                ipIndicator.setAbuseIpDbStatus(abuseResult.getStatus());
+                ipIndicator.setAbuseConfidenceScore(abuseResult.getAbuseConfidenceScore());
+                ipIndicator.setTotalReports(abuseResult.getTotalReports());
+                ipIndicator.setLastReportedAt(abuseResult.getLastReportedAt());
+
                 emailCase.addIndicator(ipIndicator);
             }
 

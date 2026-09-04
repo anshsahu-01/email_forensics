@@ -26,6 +26,12 @@ public class EmailIndicator {
     private Integer virusTotalHarmless;
     private Integer virusTotalUndetected;
 
+    // AbuseIPDB enrichment — populated for IP indicators only
+    private String abuseIpDbStatus;          // MALICIOUS, SUSPICIOUS, CLEAN, UNKNOWN, ERROR
+    private Integer abuseConfidenceScore;    // 0–100 as returned by AbuseIPDB
+    private Integer totalReports;            // total abuse reports on record
+    private String lastReportedAt;           // ISO-8601 string from AbuseIPDB ("lastReportedAt")
+
     @JsonBackReference
     @ManyToOne
     @JoinColumn(name = "case_id")
