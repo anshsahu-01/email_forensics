@@ -2,6 +2,7 @@ package com.emailForemsic.emailForensic;
 
 import com.emailForemsic.emailForensic.dto.AbuseIpDbResult;
 import com.emailForemsic.emailForensic.dto.EmailParsedResult;
+import com.emailForemsic.emailForensic.dto.GeoLocationResult;
 import com.emailForemsic.emailForensic.dto.ReceivedHeaderInfo;
 import com.emailForemsic.emailForensic.dto.VirusTotalReputationResult;
 import com.emailForemsic.emailForensic.entity.EmailCase;
@@ -103,6 +104,7 @@ class EmailCaseServiceTest {
                 .status("CLEAN").malicious(0).suspicious(0).harmless(5).undetected(2).build());
         when(abuseIpDbService.checkIp(anyString())).thenReturn(
                 AbuseIpDbResult.builder().status("CLEAN").abuseConfidenceScore(0).totalReports(0).build());
+        when(geoLocationService.lookup(anyString())).thenReturn(GeoLocationResult.builder().build());
         when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
 
         EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
@@ -146,6 +148,7 @@ class EmailCaseServiceTest {
         EmailParsedResult parsedResult = buildParsedResult("203.0.113.25", List.of());
 
         when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+        when(geoLocationService.lookup(anyString())).thenReturn(GeoLocationResult.builder().build());
         when(abuseIpDbService.checkIp("203.0.113.25")).thenReturn(AbuseIpDbResult.builder()
                 .status("MALICIOUS")
                 .abuseConfidenceScore(90)
@@ -177,6 +180,7 @@ class EmailCaseServiceTest {
         EmailParsedResult parsedResult = buildParsedResult("203.0.113.25", List.of());
 
         when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+        when(geoLocationService.lookup(anyString())).thenReturn(GeoLocationResult.builder().build());
         when(abuseIpDbService.checkIp(anyString())).thenThrow(new RuntimeException("timeout"));
         when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -217,6 +221,7 @@ class EmailCaseServiceTest {
         EmailParsedResult parsedResult = buildParsedResult("203.0.113.25", List.of());
 
         when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+        when(geoLocationService.lookup(anyString())).thenReturn(GeoLocationResult.builder().build());
         when(abuseIpDbService.checkIp(anyString())).thenReturn(
                 AbuseIpDbResult.builder().status("UNKNOWN").build());
         when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
@@ -375,5 +380,96 @@ class EmailCaseServiceTest {
         EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
         assertEquals("LOW", savedCase.getSpoofingRisk());
         assertEquals("[]", savedCase.getSpoofingFindings());
+    }
+
+    // -----------------------------------------------------------------------
+    // Geolocation persistence and failure tests
+    // -----------------------------------------------------------------------
+
+    @Test
+    void persistsGeoFieldsIntoEmailCaseWhenLookupSucceeds() throws Exception {
+        EmailParsedResult parsedResult = buildParsedResult("8.8.8.8", List.of());
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+        when(geoLocationService.lookup("8.8.8.8")).thenReturn(GeoLocationResult.builder()
+                .country("United States")
+                .city("Mountain View")
+                .latitude(37.386)
+                .longitude(-122.0838)
+                .timezone("America/Los_Angeles")
+                .build());
+        when(abuseIpDbService.checkIp(anyString())).thenReturn(
+                AbuseIpDbResult.builder().status("CLEAN").build());
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+
+        assertEquals("United States", savedCase.getGeoCountry());
+        assertEquals("Mountain View", savedCase.getGeoCity());
+        assertEquals(37.386, savedCase.getGeoLatitude());
+        assertEquals(-122.0838, savedCase.getGeoLongitude());
+        assertEquals("America/Los_Angeles", savedCase.getGeoTimezone());
+        verify(geoLocationService, times(1)).lookup("8.8.8.8");
+
+        EmailIndicator ipIndicator = savedCase.getIndicators().stream()
+                .filter(i -> "IP".equals(i.getType()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Expected an IP indicator"));
+        assertEquals("Mountain View, United States (America/Los_Angeles)", ipIndicator.getDetails());
+    }
+
+    @Test
+    void geoFieldsAreNullWhenLookupReturnsEmptyResult() throws Exception {
+        EmailParsedResult parsedResult = buildParsedResult("203.0.113.1", List.of());
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+        when(geoLocationService.lookup(anyString())).thenReturn(GeoLocationResult.builder().build());
+        when(abuseIpDbService.checkIp(anyString())).thenReturn(
+                AbuseIpDbResult.builder().status("CLEAN").build());
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+
+        assertNull(savedCase.getGeoCountry());
+        assertNull(savedCase.getGeoCity());
+        assertNull(savedCase.getGeoLatitude());
+        assertNull(savedCase.getGeoLongitude());
+        assertNull(savedCase.getGeoTimezone());
+        // Case must still be saved
+        verify(caseRepository, times(1)).save(any(EmailCase.class));
+    }
+
+    @Test
+    void emailCaseIsSavedWhenGeoLocationLookupThrows() throws Exception {
+        EmailParsedResult parsedResult = buildParsedResult("203.0.113.25", List.of());
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+        when(geoLocationService.lookup(anyString())).thenThrow(new RuntimeException("unexpected geo failure"));
+        when(abuseIpDbService.checkIp(anyString())).thenReturn(
+                AbuseIpDbResult.builder().status("CLEAN").build());
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        // Must not throw — geo failure is non-fatal
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+
+        verify(caseRepository, times(1)).save(any(EmailCase.class));
+        assertNotNull(savedCase);
+        // Geo fields remain null
+        assertNull(savedCase.getGeoCountry());
+        assertNull(savedCase.getGeoCity());
+    }
+
+    @Test
+    void noGeoLookupWhenOriginatingIpIsNull() throws Exception {
+        EmailParsedResult parsedResult = buildParsedResult(null, List.of());
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        emailCaseService.processAndSaveEml(dummyFile());
+
+        // GeoLocationService must never be called when originatingIp is null
+        verify(geoLocationService, never()).lookup(any());
+        verifyNoInteractions(geoLocationService);
     }
 }

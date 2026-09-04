@@ -118,6 +118,18 @@ interface EmailCase {
 
   spoofingFindings?: string | null;
 
+  // Approximate IP geolocation — populated from MaxMind GeoIP2 lookup.
+  // All fields are nullable; missing values are displayed gracefully as "—".
+  geoCountry?: string | null;
+
+  geoCity?: string | null;
+
+  geoLatitude?: number | null;
+
+  geoLongitude?: number | null;
+
+  geoTimezone?: string | null;
+
 }
 
 
@@ -681,6 +693,74 @@ export default function ForensicDashboard() {
                   )) : <p className="text-xs text-slate-500">—</p>}
 
                 </div>
+
+              </section>
+
+              <section className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+
+                <h3 className="text-md font-semibold mb-4 flex items-center gap-2">
+
+                  <Globe className="w-4 h-4 text-cyan-400" /> Approximate IP Location
+
+                </h3>
+
+                {currentCase.geoCountry || currentCase.geoCity || currentCase.geoLatitude != null ? (
+
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+
+                    <div>
+
+                      <p className="text-slate-400 text-xs">Country</p>
+
+                      <p className="font-mono text-slate-200">{displayValue(currentCase.geoCountry)}</p>
+
+                    </div>
+
+                    <div>
+
+                      <p className="text-slate-400 text-xs">City</p>
+
+                      <p className="font-mono text-slate-200">{displayValue(currentCase.geoCity)}</p>
+
+                    </div>
+
+                    <div>
+
+                      <p className="text-slate-400 text-xs">Coordinates</p>
+
+                      <p className="font-mono text-slate-200">
+
+                        {currentCase.geoLatitude != null && currentCase.geoLongitude != null
+
+                          ? `${currentCase.geoLatitude.toFixed(4)}, ${currentCase.geoLongitude.toFixed(4)}`
+
+                          : '—'}
+
+                      </p>
+
+                    </div>
+
+                    <div>
+
+                      <p className="text-slate-400 text-xs">Timezone</p>
+
+                      <p className="font-mono text-slate-200">{displayValue(currentCase.geoTimezone)}</p>
+
+                    </div>
+
+                  </div>
+
+                ) : (
+
+                  <p className="text-xs text-slate-500">Unknown — MaxMind database not configured or no record for this IP.</p>
+
+                )}
+
+                <p className="text-xs text-slate-600 mt-3">
+
+                  Approximate geolocation only. Does not identify the exact physical location of an individual.
+
+                </p>
 
               </section>
 

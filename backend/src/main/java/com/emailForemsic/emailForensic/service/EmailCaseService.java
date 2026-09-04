@@ -6,6 +6,8 @@ import com.emailForemsic.emailForensic.dto.AbuseIpDbResult;
 
 import com.emailForemsic.emailForensic.dto.EmailParsedResult;
 
+import com.emailForemsic.emailForensic.dto.GeoLocationResult;
+
 import com.emailForemsic.emailForensic.dto.VirusTotalReputationResult;
 
 import com.emailForemsic.emailForensic.entity.EmailCase;
@@ -170,15 +172,29 @@ public class EmailCaseService {
 
             if (parsedResult.getOriginatingIp() != null) {
 
-                String geoInfo = geoLocationService.getGeoLocation(parsedResult.getOriginatingIp());
+                // Geolocation lookup — non-fatal; failures return an empty result
+                GeoLocationResult geoResult;
+                try {
+                    geoResult = geoLocationService.lookup(parsedResult.getOriginatingIp());
+                } catch (RuntimeException ex) {
+                    // Unexpected runtime failure — degrade gracefully
+                    geoResult = GeoLocationResult.builder().build();
+                }
 
+                emailCase.setGeoCountry(geoResult.getCountry());
+                emailCase.setGeoCity(geoResult.getCity());
+                emailCase.setGeoLatitude(geoResult.getLatitude());
+                emailCase.setGeoLongitude(geoResult.getLongitude());
+                emailCase.setGeoTimezone(geoResult.getTimezone());
+
+                String geoSummary = buildGeoSummary(geoResult);
                 EmailIndicator ipIndicator = EmailIndicator.builder()
 
                         .type("IP")
 
                         .value(parsedResult.getOriginatingIp())
 
-                        .details(geoInfo)
+                        .details(geoSummary)
 
                         .build();
 
@@ -275,6 +291,52 @@ public class EmailCaseService {
         }
 
         return objectMapper.writeValueAsString(parsedResult.getReceivedHeaders());
+
+    }
+
+    /**
+     * Builds a concise human-readable geolocation summary for the IP indicator's details field.
+     * Returns "Unknown Location" when no data is available.
+     */
+    private String buildGeoSummary(GeoLocationResult geo) {
+
+        if (geo == null) {
+
+            return "Unknown Location";
+
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        if (geo.getCity() != null) {
+
+            sb.append(geo.getCity());
+
+        }
+
+        if (geo.getCountry() != null) {
+
+            if (sb.length() > 0) sb.append(", ");
+
+            sb.append(geo.getCountry());
+
+        }
+
+        if (geo.getTimezone() != null) {
+
+            if (sb.length() > 0) {
+
+                sb.append(" (").append(geo.getTimezone()).append(")");
+
+            } else {
+
+                sb.append(geo.getTimezone());
+
+            }
+
+        }
+
+        return sb.length() > 0 ? sb.toString() : "Unknown Location";
 
     }
 

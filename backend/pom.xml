@@ -61,6 +61,13 @@
             <version>1.17.2</version>
         </dependency>
 
+        <!-- MaxMind GeoIP2 — local database-based IP geolocation (no external API calls) -->
+        <dependency>
+            <groupId>com.maxmind.geoip2</groupId>
+            <artifactId>geoip2</artifactId>
+            <version>4.2.0</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

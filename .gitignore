@@ -71,6 +71,9 @@ ai-service/*.pyc
 *.db
 *.db-journal
 
+# MaxMind GeoIP2 database files (never commit — download locally from maxmind.com)
+*.mmdb
+
 # -----------------------------------------------------------------------------
 # Uploaded files / generated content
 # -----------------------------------------------------------------------------

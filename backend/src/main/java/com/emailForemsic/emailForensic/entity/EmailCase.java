@@ -38,6 +38,17 @@ public class EmailCase {
     @Column(columnDefinition = "TEXT")
     private String spoofingFindings;
 
+    // -----------------------------------------------------------------------
+    // Approximate IP geolocation — populated from MaxMind GeoIP2 lookup.
+    // All fields are nullable; existing records without geolocation remain valid.
+    // Coordinates represent approximate IP-based location, NOT exact physical location.
+    // -----------------------------------------------------------------------
+    private String geoCountry;
+    private String geoCity;
+    private Double geoLatitude;
+    private Double geoLongitude;
+    private String geoTimezone;
+
     private LocalDateTime createdAt;
 
     @JsonManagedReference
