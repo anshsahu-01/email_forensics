@@ -32,6 +32,10 @@ public class EmailIndicator {
     private Integer totalReports;            // total abuse reports on record
     private String lastReportedAt;           // ISO-8601 string from AbuseIPDB ("lastReportedAt")
 
+    // ASN / Network Intelligence — populated from MaxMind GeoLite2-ASN lookup
+    private String asnNumber;               // e.g. "AS15169" — prefixed string form of the AS number
+    private String asnOrg;                  // e.g. "GOOGLE" — organization registered to the AS
+
     @JsonBackReference
     @ManyToOne
     @JoinColumn(name = "case_id")

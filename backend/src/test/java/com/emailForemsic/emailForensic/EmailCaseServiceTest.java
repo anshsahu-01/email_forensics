@@ -1,6 +1,7 @@
 package com.emailForemsic.emailForensic;
 
 import com.emailForemsic.emailForensic.dto.AbuseIpDbResult;
+import com.emailForemsic.emailForensic.dto.AsnResult;
 import com.emailForemsic.emailForensic.dto.EmailParsedResult;
 import com.emailForemsic.emailForensic.dto.GeoLocationResult;
 import com.emailForemsic.emailForensic.dto.ReceivedHeaderInfo;
@@ -9,6 +10,7 @@ import com.emailForemsic.emailForensic.entity.EmailCase;
 import com.emailForemsic.emailForensic.entity.EmailIndicator;
 import com.emailForemsic.emailForensic.repository.EmailCaseRepository;
 import com.emailForemsic.emailForensic.service.AbuseIpDbService;
+import com.emailForemsic.emailForensic.service.AsnService;
 import com.emailForemsic.emailForensic.service.EmailCaseService;
 import com.emailForemsic.emailForensic.service.EmailParserService;
 import com.emailForemsic.emailForensic.service.GeoLocationService;
@@ -32,6 +34,7 @@ class EmailCaseServiceTest {
 
     private EmailParserService parserService;
     private GeoLocationService geoLocationService;
+    private AsnService asnService;
     private VirusTotalService virusTotalService;
     private AbuseIpDbService abuseIpDbService;
     private EmailCaseRepository caseRepository;
@@ -41,6 +44,7 @@ class EmailCaseServiceTest {
     void setUp() throws Exception {
         parserService = mock(EmailParserService.class);
         geoLocationService = mock(GeoLocationService.class);
+        asnService = mock(AsnService.class);
         virusTotalService = mock(VirusTotalService.class);
         abuseIpDbService = mock(AbuseIpDbService.class);
         caseRepository = mock(EmailCaseRepository.class);
@@ -48,6 +52,7 @@ class EmailCaseServiceTest {
 
         setField(emailCaseService, "parserService", parserService);
         setField(emailCaseService, "geoLocationService", geoLocationService);
+        setField(emailCaseService, "asnService", asnService);
         setField(emailCaseService, "virusTotalService", virusTotalService);
         setField(emailCaseService, "abuseIpDbService", abuseIpDbService);
         setField(emailCaseService, "caseRepository", caseRepository);
@@ -105,6 +110,7 @@ class EmailCaseServiceTest {
         when(abuseIpDbService.checkIp(anyString())).thenReturn(
                 AbuseIpDbResult.builder().status("CLEAN").abuseConfidenceScore(0).totalReports(0).build());
         when(geoLocationService.lookup(anyString())).thenReturn(GeoLocationResult.builder().build());
+        when(asnService.lookup(anyString())).thenReturn(AsnResult.builder().build());
         when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
 
         EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
@@ -149,6 +155,7 @@ class EmailCaseServiceTest {
 
         when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
         when(geoLocationService.lookup(anyString())).thenReturn(GeoLocationResult.builder().build());
+        when(asnService.lookup(anyString())).thenReturn(AsnResult.builder().build());
         when(abuseIpDbService.checkIp("203.0.113.25")).thenReturn(AbuseIpDbResult.builder()
                 .status("MALICIOUS")
                 .abuseConfidenceScore(90)
@@ -181,6 +188,7 @@ class EmailCaseServiceTest {
 
         when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
         when(geoLocationService.lookup(anyString())).thenReturn(GeoLocationResult.builder().build());
+        when(asnService.lookup(anyString())).thenReturn(AsnResult.builder().build());
         when(abuseIpDbService.checkIp(anyString())).thenThrow(new RuntimeException("timeout"));
         when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -222,6 +230,7 @@ class EmailCaseServiceTest {
 
         when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
         when(geoLocationService.lookup(anyString())).thenReturn(GeoLocationResult.builder().build());
+        when(asnService.lookup(anyString())).thenReturn(AsnResult.builder().build());
         when(abuseIpDbService.checkIp(anyString())).thenReturn(
                 AbuseIpDbResult.builder().status("UNKNOWN").build());
         when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
@@ -400,6 +409,7 @@ class EmailCaseServiceTest {
                 .build());
         when(abuseIpDbService.checkIp(anyString())).thenReturn(
                 AbuseIpDbResult.builder().status("CLEAN").build());
+        when(asnService.lookup(anyString())).thenReturn(AsnResult.builder().build());
         when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
 
         EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
@@ -424,6 +434,7 @@ class EmailCaseServiceTest {
 
         when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
         when(geoLocationService.lookup(anyString())).thenReturn(GeoLocationResult.builder().build());
+        when(asnService.lookup(anyString())).thenReturn(AsnResult.builder().build());
         when(abuseIpDbService.checkIp(anyString())).thenReturn(
                 AbuseIpDbResult.builder().status("CLEAN").build());
         when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
@@ -445,6 +456,7 @@ class EmailCaseServiceTest {
 
         when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
         when(geoLocationService.lookup(anyString())).thenThrow(new RuntimeException("unexpected geo failure"));
+        when(asnService.lookup(anyString())).thenReturn(AsnResult.builder().build());
         when(abuseIpDbService.checkIp(anyString())).thenReturn(
                 AbuseIpDbResult.builder().status("CLEAN").build());
         when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
@@ -471,5 +483,98 @@ class EmailCaseServiceTest {
         // GeoLocationService must never be called when originatingIp is null
         verify(geoLocationService, never()).lookup(any());
         verifyNoInteractions(geoLocationService);
+    }
+
+    // -----------------------------------------------------------------------
+    // ASN / Network Intelligence persistence and failure tests
+    // -----------------------------------------------------------------------
+
+    @Test
+    void persistsAsnFieldsIntoIpIndicatorWhenLookupSucceeds() throws Exception {
+        EmailParsedResult parsedResult = buildParsedResult("8.8.8.8", List.of());
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+        when(geoLocationService.lookup(anyString())).thenReturn(GeoLocationResult.builder().build());
+        when(abuseIpDbService.checkIp(anyString())).thenReturn(
+                AbuseIpDbResult.builder().status("CLEAN").build());
+        when(asnService.lookup("8.8.8.8")).thenReturn(AsnResult.builder()
+                .asnNumber("AS15169")
+                .asnOrg("GOOGLE")
+                .build());
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+
+        EmailIndicator ipIndicator = savedCase.getIndicators().stream()
+                .filter(i -> "IP".equals(i.getType()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Expected an IP indicator"));
+
+        assertEquals("AS15169", ipIndicator.getAsnNumber());
+        assertEquals("GOOGLE", ipIndicator.getAsnOrg());
+        verify(asnService, times(1)).lookup("8.8.8.8");
+    }
+
+    @Test
+    void asnFieldsAreNullWhenLookupReturnsEmptyResult() throws Exception {
+        EmailParsedResult parsedResult = buildParsedResult("203.0.113.1", List.of());
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+        when(geoLocationService.lookup(anyString())).thenReturn(GeoLocationResult.builder().build());
+        when(abuseIpDbService.checkIp(anyString())).thenReturn(
+                AbuseIpDbResult.builder().status("CLEAN").build());
+        when(asnService.lookup(anyString())).thenReturn(AsnResult.builder().build());
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+
+        EmailIndicator ipIndicator = savedCase.getIndicators().stream()
+                .filter(i -> "IP".equals(i.getType()))
+                .findFirst()
+                .orElseThrow();
+
+        assertNull(ipIndicator.getAsnNumber());
+        assertNull(ipIndicator.getAsnOrg());
+        // Case must still be saved
+        verify(caseRepository, times(1)).save(any(EmailCase.class));
+    }
+
+    @Test
+    void emailCaseIsSavedWhenAsnLookupThrows() throws Exception {
+        EmailParsedResult parsedResult = buildParsedResult("203.0.113.25", List.of());
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+        when(geoLocationService.lookup(anyString())).thenReturn(GeoLocationResult.builder().build());
+        when(abuseIpDbService.checkIp(anyString())).thenReturn(
+                AbuseIpDbResult.builder().status("CLEAN").build());
+        when(asnService.lookup(anyString())).thenThrow(new RuntimeException("unexpected ASN failure"));
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        // Must not throw — ASN failure is non-fatal
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+
+        verify(caseRepository, times(1)).save(any(EmailCase.class));
+        assertNotNull(savedCase);
+        EmailIndicator ipIndicator = savedCase.getIndicators().stream()
+                .filter(i -> "IP".equals(i.getType()))
+                .findFirst()
+                .orElseThrow();
+        // ASN fields remain null after failure
+        assertNull(ipIndicator.getAsnNumber());
+        assertNull(ipIndicator.getAsnOrg());
+    }
+
+    @Test
+    void noAsnLookupWhenOriginatingIpIsNull() throws Exception {
+        EmailParsedResult parsedResult = buildParsedResult(null, List.of());
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        emailCaseService.processAndSaveEml(dummyFile());
+
+        // AsnService must never be called when originatingIp is null
+        verify(asnService, never()).lookup(any());
+        verifyNoInteractions(asnService);
     }
 }

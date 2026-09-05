@@ -62,6 +62,11 @@ interface EmailIndicator {
 
   lastReportedAt?: string | null;
 
+  // ASN / Network Intelligence — populated from MaxMind GeoLite2-ASN lookup
+  asnNumber?: string | null;
+
+  asnOrg?: string | null;
+
   isp?: string;
 
   country?: string;
@@ -983,6 +988,28 @@ export default function ForensicDashboard() {
                             {ind.lastReportedAt && (
 
                               <div>Last reported: <span className="text-slate-300">{ind.lastReportedAt}</span></div>
+
+                            )}
+
+                            {(ind.asnNumber || ind.asnOrg) && (
+
+                              <div className="mt-1 pt-1 border-t border-slate-800">
+
+                                <span className="text-slate-500">Network: </span>
+
+                                {ind.asnNumber && (
+
+                                  <span className="text-slate-300 font-mono">{ind.asnNumber}</span>
+
+                                )}
+
+                                {ind.asnOrg && (
+
+                                  <span className="text-slate-400 ml-2">{ind.asnOrg}</span>
+
+                                )}
+
+                              </div>
 
                             )}
 

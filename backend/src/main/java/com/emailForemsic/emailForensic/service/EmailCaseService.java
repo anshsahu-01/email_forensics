@@ -4,6 +4,8 @@ package com.emailForemsic.emailForensic.service;
 
 import com.emailForemsic.emailForensic.dto.AbuseIpDbResult;
 
+import com.emailForemsic.emailForensic.dto.AsnResult;
+
 import com.emailForemsic.emailForensic.dto.EmailParsedResult;
 
 import com.emailForemsic.emailForensic.dto.GeoLocationResult;
@@ -85,6 +87,10 @@ public class EmailCaseService {
     @Autowired
 
     private AbuseIpDbService abuseIpDbService;
+
+    @Autowired
+
+    private AsnService asnService;
 
 
 
@@ -222,7 +228,16 @@ public class EmailCaseService {
 
                 ipIndicator.setLastReportedAt(abuseResult.getLastReportedAt());
 
-
+                // ASN / Network Intelligence lookup — non-fatal; failures return an empty result
+                AsnResult asnResult;
+                try {
+                    asnResult = asnService.lookup(parsedResult.getOriginatingIp());
+                } catch (RuntimeException ex) {
+                    // Unexpected runtime failure — degrade gracefully
+                    asnResult = AsnResult.builder().build();
+                }
+                ipIndicator.setAsnNumber(asnResult.getAsnNumber());
+                ipIndicator.setAsnOrg(asnResult.getAsnOrg());
 
                 emailCase.addIndicator(ipIndicator);
 
