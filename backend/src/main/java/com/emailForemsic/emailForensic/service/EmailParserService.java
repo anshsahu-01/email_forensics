@@ -308,21 +308,97 @@ public class EmailParserService {
     }
 
     private boolean isPublicIp(String value) {
+
         if (!isIpLiteral(value)) {
+
             return false;
+
         }
+
         try {
-            byte[] address = InetAddress.getByName(value).getAddress();
-            if (address.length == 4) {
-                int first = address[0] & 0xff;
-                int second = address[1] & 0xff;
-                return first != 0 && first != 127 && !(first == 10 || (first == 172 && second >= 16 && second <= 31) || (first == 192 && second == 168));
+
+            InetAddress addr = InetAddress.getByName(value);
+
+            if (addr.isAnyLocalAddress() || addr.isLoopbackAddress() || addr.isLinkLocalAddress()) {
+
+                return false;
+
             }
-            int first = address[0] & 0xff;
-            return !isAllZero(address) && !value.equalsIgnoreCase("::1") && (first & 0xfe) != 0xfc && !(first == 0xfe && ((address[1] & 0xc0) == 0x80));
+
+            byte[] address = addr.getAddress();
+
+            if (address.length == 4) {
+
+                int first = address[0] & 0xff;
+
+                int second = address[1] & 0xff;
+
+                return !(first == 10 || (first == 172 && second >= 16 && second <= 31) || (first == 192 && second == 168));
+
+            } else if (address.length == 16) {
+
+                int first = address[0] & 0xff;
+
+                int second = address[1] & 0xff;
+
+
+
+                // Unique Local: fc00::/7
+
+                if ((first & 0xfe) == 0xfc) {
+
+                    return false;
+
+                }
+
+
+
+                // Documentation: 2001:db8::/32
+
+                if (first == 0x20 && second == 0x01 && (address[2] & 0xff) == 0x0d && (address[3] & 0xff) == 0xb8) {
+
+                    return false;
+
+                }
+
+
+
+                // IPv4-mapped IPv6: ::ffff:0:0/96
+
+                boolean isIpv4Mapped = true;
+
+                for (int i = 0; i < 10; i++) {
+
+                    if (address[i] != 0) {
+
+                        isIpv4Mapped = false;
+
+                        break;
+
+                    }
+
+                }
+
+                if (isIpv4Mapped && (address[10] & 0xff) == 0xff && (address[11] & 0xff) == 0xff) {
+
+                    return false;
+
+                }
+
+
+
+                return true;
+
+            }
+
         } catch (UnknownHostException e) {
+
             return false;
+
         }
+
+        return false;
+
     }
 
     private boolean isAllZero(byte[] address) {

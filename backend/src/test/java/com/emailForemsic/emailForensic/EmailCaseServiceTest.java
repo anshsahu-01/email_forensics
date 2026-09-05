@@ -569,12 +569,264 @@ class EmailCaseServiceTest {
         EmailParsedResult parsedResult = buildParsedResult(null, List.of());
 
         when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
-        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
-
         emailCaseService.processAndSaveEml(dummyFile());
 
         // AsnService must never be called when originatingIp is null
+
         verify(asnService, never()).lookup(any());
+
         verifyNoInteractions(asnService);
+
     }
+
+
+
+    @Test
+
+    void threatScore_cleanCase_isZero() throws Exception {
+
+        EmailParsedResult parsedResult = buildSpoofingParsedResult("sender@example.com", "sender@example.com", "sender@example.com", "pass", "pass", "pass");
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+
+        assertEquals(0, savedCase.getThreatScore());
+
+    }
+
+
+
+    @Test
+
+    void threatScore_spfFail_adds10() throws Exception {
+
+        EmailParsedResult parsedResult = buildSpoofingParsedResult("sender@example.com", "sender@example.com", "sender@example.com", "pass", "fail", "pass");
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+
+        assertEquals(10, savedCase.getThreatScore());
+
+    }
+
+
+
+    @Test
+
+    void threatScore_allAuthFail_adds30() throws Exception {
+
+        EmailParsedResult parsedResult = buildSpoofingParsedResult("sender@example.com", "sender@example.com", "sender@example.com", "fail", "fail", "fail");
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+
+        assertEquals(30, savedCase.getThreatScore());
+
+    }
+
+
+
+    @Test
+
+    void threatScore_spoofingMedium_adds20() throws Exception {
+
+        EmailParsedResult parsedResult = buildSpoofingParsedResult("sender@example.com", "attacker@other.com", "sender@example.com", "pass", "pass", "pass");
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+
+        assertEquals(20, savedCase.getThreatScore());
+
+    }
+
+
+
+    @Test
+
+    void threatScore_spoofingHigh_adds40() throws Exception {
+
+        EmailParsedResult parsedResult = buildSpoofingParsedResult("sender@example.com", "attacker@other.com", "sender@example.com", "fail", "pass", "pass");
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+
+        assertEquals(50, savedCase.getThreatScore());
+
+    }
+
+
+
+    @Test
+
+    void threatScore_virusTotalMalicious_adds40() throws Exception {
+
+        EmailParsedResult parsedResult = buildParsedResult("203.0.113.25", List.of("https://evil.com"));
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+
+        when(virusTotalService.checkUrl(anyString())).thenReturn(VirusTotalReputationResult.builder()
+
+                .status("MALICIOUS").build());
+
+        when(abuseIpDbService.checkIp(anyString())).thenReturn(AbuseIpDbResult.builder().status("CLEAN").build());
+
+        when(geoLocationService.lookup(anyString())).thenReturn(GeoLocationResult.builder().build());
+
+        when(asnService.lookup(anyString())).thenReturn(AsnResult.builder().build());
+
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+
+        // spf pass(0), dkim fail(10), dmarc none(0), spoofing low(0), VT(40), AbuseIPDB(0) = 50
+
+        assertEquals(50, savedCase.getThreatScore());
+
+    }
+
+
+
+    @Test
+
+    void threatScore_abuseIpDbMalicious_adds30() throws Exception {
+
+        EmailParsedResult parsedResult = buildParsedResult("203.0.113.25", List.of());
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+
+        when(abuseIpDbService.checkIp(anyString())).thenReturn(AbuseIpDbResult.builder()
+
+                .status("MALICIOUS").abuseConfidenceScore(90).build());
+
+        when(geoLocationService.lookup(anyString())).thenReturn(GeoLocationResult.builder().build());
+
+        when(asnService.lookup(anyString())).thenReturn(AsnResult.builder().build());
+
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+
+        // spf pass(0), dkim fail(10), dmarc none(0), spoofing low(0), AbuseIPDB(30) = 40
+
+        assertEquals(40, savedCase.getThreatScore());
+
+    }
+
+
+
+    @Test
+
+    void threatScore_capAt100() throws Exception {
+
+        EmailParsedResult parsedResult = buildParsedResult("203.0.113.25", List.of("https://evil.com"));
+
+        // Make auth fail, spoofing high, VT malicious, AbuseIPDB malicious -> easily > 100
+
+        parsedResult.setSpfStatus("fail");
+
+        parsedResult.setDkimStatus("fail");
+
+        parsedResult.setDmarcStatus("fail");
+
+        parsedResult.setReplyTo("attacker@other.com"); // causes mismatch + DMARC fail = HIGH spoofing (40)
+
+
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+
+        when(virusTotalService.checkUrl(anyString())).thenReturn(VirusTotalReputationResult.builder()
+
+                .status("MALICIOUS").build());
+
+        when(abuseIpDbService.checkIp(anyString())).thenReturn(AbuseIpDbResult.builder()
+
+                .status("MALICIOUS").abuseConfidenceScore(90).build());
+
+        when(geoLocationService.lookup(anyString())).thenReturn(GeoLocationResult.builder().build());
+
+        when(asnService.lookup(anyString())).thenReturn(AsnResult.builder().build());
+
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+
+        // Auth(30) + Spoofing(40) + VT(40) + IP(30) = 140 -> Capped to 100
+
+        assertEquals(100, savedCase.getThreatScore());
+
+    }
+
+
+
+    @Test
+
+    void threatScore_unknownError_noIncrease() throws Exception {
+
+        EmailParsedResult parsedResult = buildParsedResult("203.0.113.25", List.of("https://unknown.com"));
+
+        parsedResult.setSpfStatus("unknown");
+
+        parsedResult.setDkimStatus("error");
+
+        parsedResult.setDmarcStatus("none");
+
+
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+
+        when(virusTotalService.checkUrl(anyString())).thenReturn(VirusTotalReputationResult.builder()
+
+                .status("ERROR").build());
+
+        when(abuseIpDbService.checkIp(anyString())).thenReturn(AbuseIpDbResult.builder()
+
+                .status("UNKNOWN").build());
+
+        when(geoLocationService.lookup(anyString())).thenReturn(GeoLocationResult.builder().build());
+
+        when(asnService.lookup(anyString())).thenReturn(AsnResult.builder().build());
+
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+
+        // All unknown/error should be 0. (Spoofing should be LOW since no mismatch).
+
+        assertEquals(0, savedCase.getThreatScore());
+
+    }
+
 }

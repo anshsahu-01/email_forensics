@@ -2,7 +2,7 @@
 
 
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 
 import { Upload, ShieldAlert, CheckCircle, FileText, Globe, RefreshCw } from 'lucide-react';
 
@@ -142,6 +142,8 @@ interface EmailCase {
 export default function ForensicDashboard() {
 
   const [file, setFile] = useState<File | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(false);
 
@@ -381,6 +383,14 @@ export default function ForensicDashboard() {
 
       fetchHistory();
 
+      setFile(null);
+
+      if (fileInputRef.current) {
+
+        fileInputRef.current.value = '';
+
+      }
+
     } catch (err) {
 
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -397,11 +407,73 @@ export default function ForensicDashboard() {
 
   const getStatusBadge = (status: string | null | undefined) => {
 
-    const isPass = status?.toUpperCase() === 'PASS';
+    const s = status?.toUpperCase() || 'UNKNOWN';
+
+    let bg = 'bg-slate-800/60 text-slate-300';
+
+
+
+    if (s === 'PASS') {
+
+      bg = 'bg-green-900/60 text-green-300';
+
+    } else if (s === 'FAIL' || s === 'PERMERROR') {
+
+      bg = 'bg-red-900/60 text-red-300';
+
+    } else if (s === 'SOFTFAIL' || s === 'TEMPERROR') {
+
+      bg = 'bg-amber-900/60 text-amber-300';
+
+    } else if (s === 'NONE' || s === 'NEUTRAL' || s === 'UNKNOWN') {
+
+      bg = 'bg-slate-800/60 text-slate-300';
+
+    }
+
+
 
     return (
 
-      <span className={`px-2 py-0.5 text-xs font-semibold rounded ${isPass ? 'bg-green-900/60 text-green-300' : 'bg-red-900/60 text-red-300'}`}>
+      <span className={`px-2 py-0.5 text-xs font-semibold rounded ${bg}`}>
+
+        {displayValue(status)}
+
+      </span>
+
+    );
+
+  };
+
+
+
+  const getSpoofingBadge = (status: string | null | undefined) => {
+
+    const s = status?.toUpperCase() || 'UNKNOWN';
+
+    let bg = 'bg-slate-800/60 text-slate-300';
+
+
+
+    if (s === 'LOW') {
+
+      bg = 'bg-green-900/60 text-green-300';
+
+    } else if (s === 'MEDIUM') {
+
+      bg = 'bg-amber-900/60 text-amber-300';
+
+    } else if (s === 'HIGH') {
+
+      bg = 'bg-red-900/60 text-red-300';
+
+    }
+
+
+
+    return (
+
+      <span className={`px-2 py-0.5 text-xs font-semibold rounded ${bg}`}>
 
         {displayValue(status)}
 
@@ -460,6 +532,8 @@ export default function ForensicDashboard() {
                 type="file"
 
                 accept=".eml"
+
+                ref={fileInputRef}
 
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
 
@@ -825,7 +899,7 @@ export default function ForensicDashboard() {
 
                     <span className="text-xs text-slate-400 block mb-1">Spoofing Risk</span>
 
-                    {getStatusBadge(currentCase.spoofingRisk)}
+                    {getSpoofingBadge(currentCase.spoofingRisk)}
 
                   </div>
 

@@ -203,8 +203,9 @@ class EmailParserServiceTest {
 
             assertEquals(1, result.getReceivedHeaders().size());
             ReceivedHeaderInfo received = result.getReceivedHeaders().get(0);
-            assertEquals("2001:db8::25", received.getFromIp());
-            assertEquals("2001:db8::25", result.getOriginatingIp());
+            assertEquals("2001:4860:4860::8888", received.getFromIp());
+
+            assertEquals("2001:4860:4860::8888", result.getOriginatingIp());
         }
     }
 
@@ -298,5 +299,75 @@ class EmailParserServiceTest {
         assertNotNull(result.getExtractedUrls());
         assertTrue(result.getExtractedUrls().isEmpty());
     }
+
+    @Test
+
+    void testIsPublicIpFilters() throws Exception {
+
+        java.lang.reflect.Method method = EmailParserService.class.getDeclaredMethod("isPublicIp", String.class);
+
+        method.setAccessible(true);
+
+
+
+        // Loopback
+
+        assertFalse((Boolean) method.invoke(parserService, "::1"));
+
+        assertFalse((Boolean) method.invoke(parserService, "127.0.0.1"));
+
+
+
+        // Private IPv4
+
+        assertFalse((Boolean) method.invoke(parserService, "10.0.0.1"));
+
+        assertFalse((Boolean) method.invoke(parserService, "172.16.0.1"));
+
+        assertFalse((Boolean) method.invoke(parserService, "192.168.1.1"));
+
+
+
+        // Unique Local IPv6 (fc00::/7)
+
+        assertFalse((Boolean) method.invoke(parserService, "fc00::1"));
+
+        assertFalse((Boolean) method.invoke(parserService, "fdff:ffff::1"));
+
+
+
+        // Link Local IPv6 (fe80::/10)
+
+        assertFalse((Boolean) method.invoke(parserService, "fe80::1"));
+
+
+
+        // Documentation IPv6 (2001:db8::/32)
+
+        assertFalse((Boolean) method.invoke(parserService, "2001:db8::1"));
+
+
+
+        // IPv4-mapped IPv6 (::ffff:0:0/96)
+
+        assertFalse((Boolean) method.invoke(parserService, "::ffff:192.168.1.1"));
+
+
+
+        // Public IPv6
+
+        assertTrue((Boolean) method.invoke(parserService, "2001:4860:4860::8888"));
+
+        assertTrue((Boolean) method.invoke(parserService, "2606:4700:4700::1111"));
+
+
+
+        // Public IPv4
+
+        assertTrue((Boolean) method.invoke(parserService, "8.8.8.8"));
+
+    }
+
+
 
 }

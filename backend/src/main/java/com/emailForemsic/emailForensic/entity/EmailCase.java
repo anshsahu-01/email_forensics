@@ -30,6 +30,10 @@ public class EmailCase {
     @Column(columnDefinition = "TEXT")
     private String receivedHeaders;
 
+    /**
+     * Intentionally left unpopulated.
+     * Not persisted for storage optimization and privacy/security reasons.
+     */
     @Column(columnDefinition = "TEXT")
     private String rawBody;
 

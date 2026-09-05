@@ -108,14 +108,6 @@ public class EmailCaseService {
 
 
 
-            int threatScore = 0;
-
-            if (parsedResult.getOriginatingIp() != null) {
-
-                threatScore += 20;
-
-            }
-
 
 
             EmailCase emailCase = EmailCase.builder()
@@ -126,7 +118,7 @@ public class EmailCaseService {
 
                     .analysisStatus("ANALYZED")
 
-                    .threatScore(threatScore)
+                    .threatScore(0)
 
                     .originatingIp(parsedResult.getOriginatingIp())
 
@@ -289,9 +281,93 @@ public class EmailCaseService {
 
 
 
+            calculateAndSetThreatScore(emailCase);
+
             return caseRepository.save(emailCase);
 
         }
+
+    }
+
+
+
+    private void calculateAndSetThreatScore(EmailCase emailCase) {
+
+        int score = 0;
+
+
+
+        if (emailCase.getHeader() != null) {
+
+            if ("fail".equalsIgnoreCase(emailCase.getHeader().getSpfStatus())) score += 10;
+
+            if ("fail".equalsIgnoreCase(emailCase.getHeader().getDkimStatus())) score += 10;
+
+            if ("fail".equalsIgnoreCase(emailCase.getHeader().getDmarcStatus())) score += 10;
+
+        }
+
+
+
+        if ("MEDIUM".equalsIgnoreCase(emailCase.getSpoofingRisk())) {
+
+            score += 20;
+
+        } else if ("HIGH".equalsIgnoreCase(emailCase.getSpoofingRisk())) {
+
+            score += 40;
+
+        }
+
+
+
+        boolean maliciousIpCounted = false;
+
+        boolean maliciousUrlCounted = false;
+
+
+
+        if (emailCase.getIndicators() != null) {
+
+            for (EmailIndicator indicator : emailCase.getIndicators()) {
+
+                if ("IP".equalsIgnoreCase(indicator.getType()) && !maliciousIpCounted) {
+
+                    if ("MALICIOUS".equalsIgnoreCase(indicator.getAbuseIpDbStatus()) ||
+
+                       (indicator.getAbuseConfidenceScore() != null && indicator.getAbuseConfidenceScore() > 50)) {
+
+                        score += 30;
+
+                        maliciousIpCounted = true;
+
+                    }
+
+                } else if ("URL".equalsIgnoreCase(indicator.getType()) && !maliciousUrlCounted) {
+
+                    if ("MALICIOUS".equalsIgnoreCase(indicator.getVirusTotalStatus())) {
+
+                        score += 40;
+
+                        maliciousUrlCounted = true;
+
+                    }
+
+                }
+
+            }
+
+        }
+
+
+
+        if (score > 100) {
+
+            score = 100;
+
+        }
+
+        emailCase.setThreatScore(score);
 
     }
 

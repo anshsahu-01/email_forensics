@@ -24,6 +24,12 @@ public class EmailParsedResult {
     private String spfStatus;
     private String dkimStatus;
     private String dmarcStatus;
+    /**
+
+     * Intentionally left unpopulated for privacy/security reasons.
+
+     */
+
     private String rawBody;
     private List<ReceivedHeaderInfo> receivedHeaders;
     private List<String> extractedUrls;
