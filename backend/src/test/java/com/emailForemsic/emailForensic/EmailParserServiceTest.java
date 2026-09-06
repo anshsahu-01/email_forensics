@@ -370,4 +370,132 @@ class EmailParserServiceTest {
 
 
 
+    // -----------------------------------------------------------------------
+    // Sender IP Intelligence tests
+    // -----------------------------------------------------------------------
+
+    @Test
+    void senderIp_xOriginatingIp_publicIp_returnsConfirmed() throws Exception {
+        EmailParsedResult result = parseFixture("x-originating-ip-email.eml");
+
+        assertEquals("8.8.8.8", result.getSenderIp());
+        assertEquals("X-Originating-IP", result.getSenderIpSource());
+        assertEquals("CONFIRMED", result.getSenderIpConfidence());
+    }
+
+    @Test
+    void senderIp_xClientIp_publicIp_returnsConfirmed() throws Exception {
+        EmailParsedResult result = parseFixture("x-client-ip-email.eml");
+
+        assertEquals("1.1.1.1", result.getSenderIp());
+        assertEquals("X-Client-IP", result.getSenderIpSource());
+        assertEquals("CONFIRMED", result.getSenderIpConfidence());
+    }
+
+    @Test
+    void senderIp_xSenderIp_publicIp_returnsConfirmed() throws Exception {
+        EmailParsedResult result = parseFixture("x-sender-ip-email.eml");
+
+        assertEquals("8.8.4.4", result.getSenderIp());
+        assertEquals("X-Sender-IP", result.getSenderIpSource());
+        assertEquals("CONFIRMED", result.getSenderIpConfidence());
+    }
+
+    @Test
+    void senderIp_xRealIp_publicIp_returnsConfirmed() throws Exception {
+        EmailParsedResult result = parseFixture("x-real-ip-email.eml");
+
+        assertEquals("8.8.4.4", result.getSenderIp());
+        assertEquals("X-Real-IP", result.getSenderIpSource());
+        assertEquals("CONFIRMED", result.getSenderIpConfidence());
+    }
+
+    @Test
+    void senderIp_gmailRelayOnly_noExplicitHeaders_returnsNotExposed() throws Exception {
+        EmailParsedResult result = parseFixture("gmail-relay-only-email.eml");
+
+        // No explicit client-origin headers present — sender device IP is not exposed.
+        assertNull(result.getSenderIp());
+        assertEquals("NOT_EXPOSED", result.getSenderIpSource());
+        assertEquals("NOT_EXPOSED", result.getSenderIpConfidence());
+
+        // Received-SPF populates connectingIp, NOT senderIp.
+        assertEquals("209.85.220.41", result.getConnectingIp());
+        assertEquals("Received-SPF", result.getConnectingIpSource());
+        assertEquals("CONFIRMED", result.getConnectingIpConfidence());
+
+        // originatingIp must still be the Google relay IP from Received chain.
+        assertEquals("8.8.8.8", result.getOriginatingIp());
+    }
+
+    @Test
+    void senderIp_receivedSpfClientIp_spfPass_populatesConnectingIpOnly() throws Exception {
+        EmailParsedResult result = parseFixture("received-spf-client-ip-pass-email.eml");
+
+        // Received-SPF must NOT populate senderIp.
+        assertNull(result.getSenderIp());
+        assertEquals("NOT_EXPOSED", result.getSenderIpSource());
+        assertEquals("NOT_EXPOSED", result.getSenderIpConfidence());
+
+        // Received-SPF populates connectingIp.
+        assertEquals("1.1.1.1", result.getConnectingIp());
+        assertEquals("Received-SPF", result.getConnectingIpSource());
+        assertEquals("CONFIRMED", result.getConnectingIpConfidence());
+    }
+
+    @Test
+    void senderIp_receivedSpfClientIp_spfFail_populatesConnectingIpOnly() throws Exception {
+        EmailParsedResult result = parseFixture("received-spf-client-ip-fail-email.eml");
+
+        // Received-SPF must NOT populate senderIp.
+        assertNull(result.getSenderIp());
+
+        // Received-SPF populates connectingIp.
+        assertEquals("8.8.4.4", result.getConnectingIp());
+        assertEquals("Received-SPF", result.getConnectingIpSource());
+        assertEquals("LIKELY", result.getConnectingIpConfidence());
+    }
+
+    @Test
+    void senderIp_xOriginatingIpPrivate_fallsThrough_returnsNotExposed() throws Exception {
+        EmailParsedResult result = parseFixture("x-originating-ip-private-email.eml");
+
+        // 192.168.1.10 is private — must be rejected; no fallback available.
+        assertNull(result.getSenderIp());
+        assertEquals("NOT_EXPOSED", result.getSenderIpSource());
+        assertEquals("NOT_EXPOSED", result.getSenderIpConfidence());
+    }
+
+    @Test
+    void senderIp_conflictingExplicitHeaders_xOriginatingIpWins() throws Exception {
+        EmailParsedResult result = parseFixture("conflicting-explicit-headers-email.eml");
+
+        // X-Originating-IP has higher priority than X-Client-IP.
+        assertEquals("8.8.8.8", result.getSenderIp());
+        assertEquals("X-Originating-IP", result.getSenderIpSource());
+        assertEquals("CONFIRMED", result.getSenderIpConfidence());
+    }
+
+    @Test
+    void senderIp_xOriginatingIpIPv6Public_returnsConfirmed() throws Exception {
+        EmailParsedResult result = parseFixture("x-originating-ip-ipv6-email.eml");
+
+        assertEquals("2606:4700:4700::1111", result.getSenderIp());
+        assertEquals("X-Originating-IP", result.getSenderIpSource());
+        assertEquals("CONFIRMED", result.getSenderIpConfidence());
+    }
+
+    @Test
+    void senderIp_receivedChainAlone_doesNotPopulateSenderIp() throws Exception {
+        // multiple-received-email.eml has only Received headers, no explicit client-origin headers.
+        // senderIp must remain null; originatingIp gets the Received-chain value.
+        EmailParsedResult result = parseFixture("multiple-received-email.eml");
+
+        assertNull(result.getSenderIp());
+        assertEquals("NOT_EXPOSED", result.getSenderIpSource());
+        assertEquals("NOT_EXPOSED", result.getSenderIpConfidence());
+        // originatingIp should still be populated from the Received chain.
+        assertNotNull(result.getOriginatingIp());
+    }
+
 }

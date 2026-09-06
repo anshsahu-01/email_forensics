@@ -1,0 +1,6 @@
+From: sender@example.com
+To: recipient@example.com
+Subject: IPv6 X-Originating-IP test
+X-Originating-IP: 2606:4700:4700::1111
+
+Test message.

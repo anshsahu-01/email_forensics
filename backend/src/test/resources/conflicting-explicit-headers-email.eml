@@ -1,0 +1,7 @@
+From: sender@example.com
+To: recipient@example.com
+Subject: Conflicting explicit headers test
+X-Originating-IP: 8.8.8.8
+X-Client-IP: 1.1.1.1
+
+Test message.

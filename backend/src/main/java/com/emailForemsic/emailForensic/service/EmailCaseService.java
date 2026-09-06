@@ -122,6 +122,18 @@ public class EmailCaseService {
 
                     .originatingIp(parsedResult.getOriginatingIp())
 
+                    .senderIp(parsedResult.getSenderIp())
+
+                    .senderIpSource(parsedResult.getSenderIpSource())
+
+                    .senderIpConfidence(parsedResult.getSenderIpConfidence())
+
+                    .connectingIp(parsedResult.getConnectingIp())
+
+                    .connectingIpSource(parsedResult.getConnectingIpSource())
+
+                    .connectingIpConfidence(parsedResult.getConnectingIpConfidence())
+
                     .receivedHeaders(serializeReceivedHeaders(parsedResult))
 
                     .rawBody(parsedResult.getRawBody())
@@ -168,49 +180,103 @@ public class EmailCaseService {
 
 
 
-            if (parsedResult.getOriginatingIp() != null) {
+            // Determine the best IP to enrich with GeoLocation / ASN / AbuseIPDB.
+
+            // Prefer senderIp (explicit evidence) when available; fall back to connectingIp,
+
+            // then originatingIp (earliest public Received-chain IP).
+
+            String enrichmentIp = parsedResult.getSenderIp() != null
+
+                    ? parsedResult.getSenderIp()
+
+                    : (parsedResult.getConnectingIp() != null ? parsedResult.getConnectingIp() : parsedResult.getOriginatingIp());
+
+
+
+            if (enrichmentIp != null) {
 
                 // Geolocation lookup — non-fatal; failures return an empty result
+
                 GeoLocationResult geoResult;
+
                 try {
-                    geoResult = geoLocationService.lookup(parsedResult.getOriginatingIp());
+
+                    geoResult = geoLocationService.lookup(enrichmentIp);
+
                 } catch (RuntimeException ex) {
+
                     // Unexpected runtime failure — degrade gracefully
+
                     geoResult = GeoLocationResult.builder().build();
+
                 }
 
+
+
                 emailCase.setGeoCountry(geoResult.getCountry());
+
                 emailCase.setGeoCity(geoResult.getCity());
+
                 emailCase.setGeoLatitude(geoResult.getLatitude());
+
                 emailCase.setGeoLongitude(geoResult.getLongitude());
+
                 emailCase.setGeoTimezone(geoResult.getTimezone());
 
+
+
                 String geoSummary = buildGeoSummary(geoResult);
+
                 EmailIndicator ipIndicator = EmailIndicator.builder()
+
+
 
                         .type("IP")
 
-                        .value(parsedResult.getOriginatingIp())
+
+
+                        .value(enrichmentIp)
+
+
 
                         .details(geoSummary)
+
+
 
                         .build();
 
 
 
+
+
                 // Enrich with AbuseIPDB — non-fatal; failure sets status=ERROR on indicator
+
+
 
                 AbuseIpDbResult abuseResult;
 
+
+
                 try {
 
-                    abuseResult = abuseIpDbService.checkIp(parsedResult.getOriginatingIp());
+
+
+                    abuseResult = abuseIpDbService.checkIp(enrichmentIp);
+
+
 
                 } catch (RuntimeException ex) {
 
+
+
                     abuseResult = AbuseIpDbResult.builder().status("ERROR").build();
 
+
+
                 }
+
+
 
                 ipIndicator.setAbuseIpDbStatus(abuseResult.getStatus());
 
@@ -220,18 +286,33 @@ public class EmailCaseService {
 
                 ipIndicator.setLastReportedAt(abuseResult.getLastReportedAt());
 
+
+
                 // ASN / Network Intelligence lookup — non-fatal; failures return an empty result
+
                 AsnResult asnResult;
+
                 try {
-                    asnResult = asnService.lookup(parsedResult.getOriginatingIp());
+
+                    asnResult = asnService.lookup(enrichmentIp);
+
                 } catch (RuntimeException ex) {
+
                     // Unexpected runtime failure — degrade gracefully
+
                     asnResult = AsnResult.builder().build();
+
                 }
+
                 ipIndicator.setAsnNumber(asnResult.getAsnNumber());
+
                 ipIndicator.setAsnOrg(asnResult.getAsnOrg());
 
+
+
                 emailCase.addIndicator(ipIndicator);
+
+
 
             }
 

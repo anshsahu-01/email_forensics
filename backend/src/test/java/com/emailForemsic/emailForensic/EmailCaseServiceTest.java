@@ -829,4 +829,137 @@ class EmailCaseServiceTest {
 
     }
 
+
+
+    // -----------------------------------------------------------------------
+    // Sender IP Intelligence — propagation tests
+    // -----------------------------------------------------------------------
+
+    @Test
+    void senderIpFieldsArePropagatedToEmailCase() throws Exception {
+        EmailParsedResult parsedResult = buildParsedResult("8.8.8.8", List.of());
+        parsedResult.setSenderIp("1.1.1.1");
+        parsedResult.setSenderIpSource("X-Originating-IP");
+        parsedResult.setSenderIpConfidence("CONFIRMED");
+
+        parsedResult.setConnectingIp("209.85.220.41");
+        parsedResult.setConnectingIpSource("Received-SPF");
+        parsedResult.setConnectingIpConfidence("CONFIRMED");
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+        when(geoLocationService.lookup(anyString())).thenReturn(GeoLocationResult.builder().build());
+        when(abuseIpDbService.checkIp(anyString())).thenReturn(AbuseIpDbResult.builder().status("CLEAN").build());
+        when(asnService.lookup(anyString())).thenReturn(AsnResult.builder().build());
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+
+        assertEquals("1.1.1.1", savedCase.getSenderIp());
+        assertEquals("X-Originating-IP", savedCase.getSenderIpSource());
+        assertEquals("CONFIRMED", savedCase.getSenderIpConfidence());
+
+        assertEquals("209.85.220.41", savedCase.getConnectingIp());
+        assertEquals("Received-SPF", savedCase.getConnectingIpSource());
+        assertEquals("CONFIRMED", savedCase.getConnectingIpConfidence());
+    }
+
+    @Test
+    void enrichmentTargetsSenderIpWhenPresent() throws Exception {
+        // senderIp = 1.1.1.1, originatingIp = 8.8.8.8.
+        // Geo/ASN/AbuseIPDB should all target senderIp (1.1.1.1), not originatingIp.
+        EmailParsedResult parsedResult = buildParsedResult("8.8.8.8", List.of());
+        parsedResult.setSenderIp("1.1.1.1");
+        parsedResult.setSenderIpSource("X-Originating-IP");
+        parsedResult.setSenderIpConfidence("CONFIRMED");
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+        when(geoLocationService.lookup("1.1.1.1")).thenReturn(GeoLocationResult.builder()
+                .country("Australia").city("Sydney").build());
+        when(abuseIpDbService.checkIp("1.1.1.1")).thenReturn(AbuseIpDbResult.builder().status("CLEAN").build());
+        when(asnService.lookup("1.1.1.1")).thenReturn(AsnResult.builder().asnNumber("AS13335").asnOrg("CLOUDFLARENET").build());
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+
+        // Geo fields should come from senderIp (1.1.1.1), not originatingIp (8.8.8.8).
+        assertEquals("Australia", savedCase.getGeoCountry());
+        assertEquals("Sydney", savedCase.getGeoCity());
+
+        // The IP indicator value should be senderIp.
+        EmailIndicator ipIndicator = savedCase.getIndicators().stream()
+                .filter(i -> "IP".equals(i.getType()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("1.1.1.1", ipIndicator.getValue());
+        assertEquals("AS13335", ipIndicator.getAsnNumber());
+
+        // Verify lookup was called on senderIp, not connectingIp or originatingIp.
+        verify(geoLocationService, times(1)).lookup("1.1.1.1");
+        verify(geoLocationService, never()).lookup("8.8.8.8");
+    }
+
+    @Test
+    void enrichmentTargetsConnectingIpWhenSenderIpIsNull() throws Exception {
+        // senderIp null, connectingIp = 209.85.220.41, originatingIp = 8.8.8.8.
+        // Enrichment should target connectingIp.
+        EmailParsedResult parsedResult = buildParsedResult("8.8.8.8", List.of());
+        parsedResult.setSenderIp(null);
+        parsedResult.setConnectingIp("209.85.220.41");
+        parsedResult.setConnectingIpSource("Received-SPF");
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+        when(geoLocationService.lookup("209.85.220.41")).thenReturn(GeoLocationResult.builder()
+                .country("United States").build());
+        when(abuseIpDbService.checkIp("209.85.220.41")).thenReturn(AbuseIpDbResult.builder().status("CLEAN").build());
+        when(asnService.lookup("209.85.220.41")).thenReturn(AsnResult.builder().build());
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+
+        assertEquals("United States", savedCase.getGeoCountry());
+
+        // Verify enrichment ran on connectingIp (209.85.220.41).
+        verify(geoLocationService, times(1)).lookup("209.85.220.41");
+        verify(geoLocationService, never()).lookup("8.8.8.8");
+
+        EmailIndicator ipIndicator = savedCase.getIndicators().stream()
+                .filter(i -> "IP".equals(i.getType()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("209.85.220.41", ipIndicator.getValue());
+    }
+
+    @Test
+    void enrichmentFallsBackToOriginatingIpWhenSenderIpAndConnectingIpAreNull() throws Exception {
+        // senderIp null, connectingIp null, originatingIp = 8.8.8.8 — enrichment should use originatingIp.
+        EmailParsedResult parsedResult = buildParsedResult("8.8.8.8", List.of());
+        parsedResult.setSenderIp(null);
+        parsedResult.setSenderIpSource("NOT_EXPOSED");
+        parsedResult.setSenderIpConfidence("NOT_EXPOSED");
+
+        when(parserService.parseEml(any(InputStream.class))).thenReturn(parsedResult);
+        when(geoLocationService.lookup("8.8.8.8")).thenReturn(GeoLocationResult.builder()
+                .country("United States").build());
+        when(abuseIpDbService.checkIp("8.8.8.8")).thenReturn(AbuseIpDbResult.builder().status("CLEAN").build());
+        when(asnService.lookup("8.8.8.8")).thenReturn(AsnResult.builder().build());
+        when(caseRepository.save(any(EmailCase.class))).thenAnswer(i -> i.getArgument(0));
+
+        EmailCase savedCase = emailCaseService.processAndSaveEml(dummyFile());
+
+        assertNull(savedCase.getSenderIp());
+        assertEquals("NOT_EXPOSED", savedCase.getSenderIpSource());
+        assertEquals("NOT_EXPOSED", savedCase.getSenderIpConfidence());
+        assertEquals("United States", savedCase.getGeoCountry());
+
+        // Verify enrichment ran on originatingIp (8.8.8.8).
+        verify(geoLocationService, times(1)).lookup("8.8.8.8");
+
+        // IP indicator should reflect originatingIp.
+        EmailIndicator ipIndicator = savedCase.getIndicators().stream()
+                .filter(i -> "IP".equals(i.getType()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("8.8.8.8", ipIndicator.getValue());
+    }
+
 }

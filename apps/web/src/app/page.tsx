@@ -135,6 +135,20 @@ interface EmailCase {
 
   geoTimezone?: string | null;
 
+  // Sender IP intelligence — populated from explicit client-origin headers only.
+  // null senderIp means the sender device IP was not exposed by message headers.
+  senderIp?: string | null;
+
+  senderIpSource?: string | null;
+
+  senderIpConfidence?: string | null;
+
+  connectingIp?: string | null;
+
+  connectingIpSource?: string | null;
+
+  connectingIpConfidence?: string | null;
+
 }
 
 
@@ -745,13 +759,95 @@ export default function ForensicDashboard() {
 
                 <h3 className="text-md font-semibold mb-4">Email Route</h3>
 
-                <div className="mb-4">
+                {/* Sender IP Intelligence block */}
 
-                  <p className="text-slate-400 text-xs">Originating IP</p>
+                <div className="mb-5 p-4 rounded-lg border border-slate-700 bg-slate-900/60">
 
-                  <p className="font-mono text-slate-200 break-all">{displayValue(currentCase.originatingIp)}</p>
+                  <p className="text-slate-300 text-xs font-semibold uppercase tracking-wide mb-3">Sender IP Intelligence</p>
+
+                  {currentCase.senderIp ? (
+
+                    <div className="space-y-1">
+
+                      <p className="font-mono text-slate-100 break-all">{currentCase.senderIp}</p>
+
+                      <div className="flex flex-wrap gap-2 mt-1">
+
+                        <span className={`px-2 py-0.5 text-xs font-semibold rounded ${
+
+                          currentCase.senderIpConfidence === 'CONFIRMED' ? 'bg-green-900/60 text-green-300' :
+
+                          currentCase.senderIpConfidence === 'LIKELY' ? 'bg-amber-900/60 text-amber-300' :
+
+                          'bg-slate-700/60 text-slate-400'
+
+                        }`}>{currentCase.senderIpConfidence}</span>
+
+                        <span className="text-xs text-slate-500">Source: {displayValue(currentCase.senderIpSource)}</span>
+
+                      </div>
+
+                      <p className="text-xs text-slate-600 mt-2">
+
+                        ⚠ Explicit client-origin headers are unauthenticated and may be forged by a malicious sender.
+
+                      </p>
+
+                    </div>
+
+                  ) : (
+
+                    <div>
+
+                      <p className="text-xs font-semibold text-slate-400">NOT EXPOSED</p>
+
+                      <p className="text-xs text-slate-500 mt-1">Sender device IP was not exposed by the message headers. This is common for Gmail, Outlook, and other major webmail providers which deliberately omit client IP addresses.</p>
+
+                    </div>
+
+                  )}
 
                 </div>
+
+
+
+                {/* Connecting IP */}
+                {currentCase.connectingIp && (
+                  <div className="mb-4 p-3 rounded-lg border border-slate-700 bg-slate-900/40">
+                    <p className="text-slate-400 text-xs font-semibold uppercase tracking-wide mb-1">Connecting IP</p>
+                    <p className="font-mono text-slate-200 break-all">{currentCase.connectingIp}</p>
+                    <div className="flex gap-2 mt-1">
+                      <span className="text-xs text-slate-500">Source: {displayValue(currentCase.connectingIpSource)}</span>
+                    </div>
+                    <p className="text-xs text-slate-600 mt-1">SMTP connecting IP observed by the receiving MTA.</p>
+                  </div>
+                )}
+
+                {/* Earliest Public Mail Server (originatingIp) */}
+
+                {currentCase.originatingIp && (
+
+                  <div className="mb-4 p-3 rounded-lg border border-slate-700 bg-slate-900/40">
+
+                    <p className="text-slate-400 text-xs font-semibold uppercase tracking-wide mb-1">
+
+                      {currentCase.senderIp || currentCase.connectingIp ? 'Originating IP (Received chain)' : 'Earliest Public Mail Server'}
+
+                    </p>
+
+                    <p className="font-mono text-slate-200 break-all">{currentCase.originatingIp}</p>
+
+                    {!currentCase.senderIp && !currentCase.connectingIp && (
+
+                      <p className="text-xs text-slate-600 mt-1">This is the earliest public IP visible in the Received chain and may be a mail relay or infrastructure server, not the sender&apos;s device.</p>
+
+                    )}
+
+                  </div>
+
+                )}
+
+
 
                 <div className="space-y-2">
 
@@ -775,17 +871,30 @@ export default function ForensicDashboard() {
 
               </section>
 
+
+
               <section className="bg-slate-800 p-6 rounded-xl border border-slate-700">
 
                 <h3 className="text-md font-semibold mb-4 flex items-center gap-2">
 
-                  <Globe className="w-4 h-4 text-cyan-400" /> Approximate IP Location
+                  <Globe className="w-4 h-4 text-cyan-400" />
+
+                  {currentCase.senderIp
+
+                    ? 'Sender Network Location (Approximate)'
+
+                    : (currentCase.connectingIp || currentCase.originatingIp)
+
+                      ? 'Mail Server Infrastructure Location (Approximate)'
+
+                      : 'Approximate IP Location'}
 
                 </h3>
 
                 {currentCase.geoCountry || currentCase.geoCity || currentCase.geoLatitude != null ? (
 
                   <div className="grid grid-cols-2 gap-4 text-sm">
+
 
                     <div>
 
@@ -837,7 +946,11 @@ export default function ForensicDashboard() {
 
                 <p className="text-xs text-slate-600 mt-3">
 
-                  Approximate geolocation only. Does not identify the exact physical location of an individual.
+                  {currentCase.senderIp
+
+                    ? 'Approximate IP geolocation of the sender network. Does not identify the exact physical location of an individual.'
+
+                    : 'Approximate geolocation of mail server infrastructure. Does not represent the sender\'s physical location.'}
 
                 </p>
 

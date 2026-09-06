@@ -1,0 +1,9 @@
+From: sender@gmail.com
+To: recipient@example.com
+Subject: Gmail relay only
+Authentication-Results: mx.example.com; spf=pass smtp.mailfrom=gmail.com; dkim=pass; dmarc=pass
+Received-SPF: pass (domain of sender@gmail.com designates 209.85.220.41 as permitted sender) client-ip=209.85.220.41;
+Received: from mail-lj1-f174.google.com (mail-lj1-f174.google.com [8.8.8.8]) by mx.example.com with ESMTPS; Thu, 3 Sep 2026 10:20:30 +0000
+Received: from [127.0.0.1] (localhost [127.0.0.1]) by smtp.gmail.com with ESMTP; Thu, 3 Sep 2026 10:19:30 +0000
+
+Test message.

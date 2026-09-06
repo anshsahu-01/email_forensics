@@ -1,0 +1,7 @@
+From: sender@example.com
+To: recipient@example.com
+Subject: Received-SPF client-ip fail test
+Authentication-Results: mx.example.com; spf=fail smtp.mailfrom=sender@example.com
+Received-SPF: fail (domain of sender@example.com does not designate 8.8.4.4 as permitted sender) client-ip=8.8.4.4;
+
+Test message.

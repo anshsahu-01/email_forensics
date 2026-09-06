@@ -53,6 +53,45 @@ public class EmailCase {
     private Double geoLongitude;
     private String geoTimezone;
 
+    // -----------------------------------------------------------------------
+    // Sender IP Intelligence — populated only from explicit evidentiary headers.
+    // senderIp is NEVER derived from the Received chain alone.
+    // originatingIp (above) retains its existing semantics: earliest public IP
+    // in the Received chain, which may be a mail relay/infrastructure IP.
+    // -----------------------------------------------------------------------
+
+    /**
+     * Sender/client IP from explicit client-origin headers only
+     * (X-Originating-IP, X-Sender-IP, X-Client-IP, X-Real-IP, Received-SPF client-ip=).
+     * Null = sender device IP was not exposed by message headers.
+     */
+    private String senderIp;
+
+    /**
+     * The specific header that provided senderIp.
+     * Values: "X-Originating-IP", "X-Sender-IP", "X-Client-IP", "X-Real-IP",
+     *         "Received-SPF", or "NOT_EXPOSED".
+     */
+    private String senderIpSource;
+
+    /**
+     * Confidence classification for senderIp:
+     * "CONFIRMED"   — explicit client-origin header present (unauthenticated, may be forged).
+     * "NOT_EXPOSED" — no credible explicit evidence; sender device IP is unknown.
+     */
+    private String senderIpConfidence;
+
+    /**
+     * Connecting IP observed by the receiving MTA.
+     * Typically populated from Received-SPF client-ip=.
+     * This may be a mail infrastructure relay and should NEVER be confused with senderIp.
+     */
+    private String connectingIp;
+
+    private String connectingIpSource;
+
+    private String connectingIpConfidence;
+
     private LocalDateTime createdAt;
 
     @JsonManagedReference

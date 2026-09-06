@@ -1,0 +1,7 @@
+From: sender@example.com
+To: recipient@example.com
+Subject: Received-SPF client-ip pass test
+Authentication-Results: mx.example.com; spf=pass smtp.mailfrom=sender@example.com
+Received-SPF: pass (domain of sender@example.com designates 1.1.1.1 as permitted sender) client-ip=1.1.1.1;
+
+Test message.

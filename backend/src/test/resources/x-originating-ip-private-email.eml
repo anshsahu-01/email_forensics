@@ -1,0 +1,6 @@
+From: sender@example.com
+To: recipient@example.com
+Subject: X-Originating-IP private test
+X-Originating-IP: 192.168.1.10
+
+Test message.

@@ -1,0 +1,6 @@
+From: sender@example.com
+To: recipient@example.com
+Subject: X-Originating-IP test
+X-Originating-IP: 8.8.8.8
+
+Test message.

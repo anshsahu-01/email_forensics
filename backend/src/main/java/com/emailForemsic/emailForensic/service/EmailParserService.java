@@ -39,6 +39,7 @@ public class EmailParserService {
     private static final Pattern TIMESTAMP_PATTERN = Pattern.compile(";\\s*(.+?)\\s*$", Pattern.DOTALL);
     private static final Pattern AUTHENTICATION_RESULT_PATTERN = Pattern.compile("\\b(spf|dkim|dmarc)\\s*=\\s*(pass|fail|softfail|neutral|none|temperror|permerror|unknown)\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern RECEIVED_SPF_RESULT_PATTERN = Pattern.compile("^\\s*(pass|fail|softfail|neutral|none|temperror|permerror|unknown)\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern RECEIVED_SPF_CLIENT_IP_PATTERN = Pattern.compile("client-ip=([^;\\s]+)", Pattern.CASE_INSENSITIVE);
     private static final Pattern URL_PATTERN = Pattern.compile("https?://[^\\s<>\\\"']+", Pattern.CASE_INSENSITIVE);
 
     public EmailParsedResult parseEml(InputStream inputStream) {
@@ -61,6 +62,8 @@ public class EmailParserService {
             result.setMessageId(readSingleHeaderValue(message, "Message-ID"));
             result.setReturnPath(readSingleHeaderValue(message, "Return-Path"));
             readAuthenticationResults(message, result);
+            resolveSenderIp(message, result);
+            resolveConnectingIp(message, result);
             List<ReceivedHeaderInfo> receivedHeaders = parseReceivedHeaders(message);
             result.setReceivedHeaders(receivedHeaders);
             result.setOriginatingIp(findOriginatingIp(receivedHeaders));
@@ -399,6 +402,102 @@ public class EmailParserService {
 
         return false;
 
+    }
+
+    /**
+     * Determines the best-evidence sender/client IP by examining explicit client-origin
+     * headers in deterministic priority order. The Received chain is intentionally NOT
+     * used here — it is handled separately by findOriginatingIp() for originatingIp.
+     *
+     * Priority order:
+     *   1. X-Originating-IP  (CONFIRMED — explicit but unauthenticated)
+     *   2. X-Sender-IP       (CONFIRMED — explicit but unauthenticated)
+     *   3. X-Client-IP       (CONFIRMED — explicit but unauthenticated)
+     *   4. X-Real-IP         (CONFIRMED — explicit but unauthenticated)
+     *
+     * Private/reserved/invalid IPs in any explicit header are rejected and the
+     * search continues to the next priority level.
+     */
+    private void resolveSenderIp(MimeMessage message, EmailParsedResult result) throws MessagingException {
+        // Priority 1-4: Explicit client-origin headers (unauthenticated).
+        // Note: these headers are not cryptographically verified and may be forged.
+        String[][] explicitHeaders = {
+            {"X-Originating-IP", "X-Originating-IP"},
+            {"X-Sender-IP",      "X-Sender-IP"},
+            {"X-Client-IP",      "X-Client-IP"},
+            {"X-Real-IP",        "X-Real-IP"},
+        };
+        for (String[] candidate : explicitHeaders) {
+            String ip = extractPublicIpFromSingleHeader(message, candidate[0]);
+            if (ip != null) {
+                result.setSenderIp(ip);
+                result.setSenderIpSource(candidate[1]);
+                result.setSenderIpConfidence("CONFIRMED");
+                return;
+            }
+        }
+
+        // No credible explicit evidence found — sender device IP is not exposed.
+        result.setSenderIp(null);
+        result.setSenderIpSource("NOT_EXPOSED");
+        result.setSenderIpConfidence("NOT_EXPOSED");
+    }
+
+    /**
+     * Extracts the connecting IP observed by the receiving MTA.
+     * Typically populated from Received-SPF client-ip=.
+     */
+    private void resolveConnectingIp(MimeMessage message, EmailParsedResult result) throws MessagingException {
+        // Priority 1: Received-SPF client-ip=
+        // This is the IP the receiving MTA recorded as the connecting client.
+        // Confidence is CONFIRMED only when SPF passes (domain authorizes the IP);
+        // otherwise LIKELY (IP is still real connecting IP, but domain is unauthorized).
+        String spfClientIp = extractReceivedSpfClientIp(message);
+        if (spfClientIp != null && isPublicIp(spfClientIp)) {
+            String spfStatus = result.getSpfStatus();
+            String confidence = "pass".equalsIgnoreCase(spfStatus) ? "CONFIRMED" : "LIKELY";
+            result.setConnectingIp(spfClientIp);
+            result.setConnectingIpSource("Received-SPF");
+            result.setConnectingIpConfidence(confidence);
+            return;
+        }
+
+        result.setConnectingIp(null);
+        result.setConnectingIpSource(null);
+        result.setConnectingIpConfidence(null);
+    }
+
+    /**
+     * Reads the named header, strips optional bracket decoration (e.g. "[1.2.3.4]"),
+     * and returns the trimmed value if it represents a publicly routable IP address.
+     * Returns null if the header is absent, contains a private/reserved IP, or is malformed.
+     */
+    private String extractPublicIpFromSingleHeader(MimeMessage message, String headerName) throws MessagingException {
+        String[] values = message.getHeader(headerName);
+        if (values == null || values.length == 0) {
+            return null;
+        }
+        // Use the first occurrence; strip common IP bracket decorations.
+        String raw = values[0].trim().replaceAll("^\\[|\\]$", "").trim();
+        return isPublicIp(raw) ? raw : null;
+    }
+
+    /**
+     * Extracts the client-ip value from the Received-SPF header if present.
+     * Returns null if the header is absent or no client-ip field is found.
+     */
+    private String extractReceivedSpfClientIp(MimeMessage message) throws MessagingException {
+        String[] headers = message.getHeader("Received-SPF");
+        if (headers == null) {
+            return null;
+        }
+        for (String header : headers) {
+            Matcher m = RECEIVED_SPF_CLIENT_IP_PATTERN.matcher(header);
+            if (m.find()) {
+                return m.group(1).trim();
+            }
+        }
+        return null;
     }
 
     private boolean isAllZero(byte[] address) {
