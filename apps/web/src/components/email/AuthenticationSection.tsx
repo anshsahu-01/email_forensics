@@ -10,21 +10,23 @@ export default function AuthenticationSection({ header }: AuthenticationSectionP
   if (!header) return null;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 className="text-sm font-bold text-slate-900 mb-6 flex items-center gap-2">
-        <ShieldCheck className="h-4 w-4 text-indigo-500" />
-        Authentication Checks
-      </h2>
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <AuthBadge label="SPF" status={header.spfStatus} />
-        <AuthBadge label="DKIM" status={header.dkimStatus} />
-        <AuthBadge label="DMARC" status={header.dmarcStatus} />
+    <div className="border border-slate-200 bg-white">
+      <div className="border-b border-slate-200 px-8 py-4 bg-slate-50">
+        <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900 flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-indigo-600" />
+          Protocol Verification (SPF/DKIM/DMARC)
+        </h2>
       </div>
 
-      <div className="mt-6 rounded-xl bg-slate-50 p-4 border border-slate-100">
-        <p className="text-[11px] text-slate-500 leading-relaxed">
-          <span className="font-bold text-slate-700">Note:</span> These results are parsed from the <code className="bg-slate-200 px-1 rounded">Authentication-Results</code> or <code className="bg-slate-200 px-1 rounded">Received-SPF</code> headers provided by the receiving mail server. They represent the server&apos;s own verification at the time of delivery.
+      <div className="p-8 grid gap-6 sm:grid-cols-3">
+        <AuthBadge label="SPF Alignment" status={header.spfStatus} />
+        <AuthBadge label="DKIM Signature" status={header.dkimStatus} />
+        <AuthBadge label="DMARC Policy" status={header.dmarcStatus} />
+      </div>
+
+      <div className="mx-8 mb-8 bg-slate-50 border-l-4 border-slate-900 p-6">
+        <p className="text-[10px] font-bold text-slate-500 leading-relaxed uppercase tracking-widest">
+          <span className="text-slate-900">Technical Note:</span> Results are parsed from the <code className="bg-slate-200 px-1 font-mono text-slate-700">Authentication-Results</code> header as observed at the point of ingestion.
         </p>
       </div>
     </div>
@@ -34,25 +36,25 @@ export default function AuthenticationSection({ header }: AuthenticationSectionP
 function AuthBadge({ label, status }: { label: string; status: string | null }) {
   const normStatus = (status || 'none').toLowerCase();
 
-  let styles = 'bg-slate-100 text-slate-600 border-slate-200';
+  let styles = 'border-slate-200 text-slate-400 bg-slate-50';
   let Icon = Shield;
-  const labelText = status || 'NONE';
+  const labelText = status || 'NOT OBSERVED';
 
   if (normStatus === 'pass') {
-    styles = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    styles = 'border-emerald-600 text-emerald-600 bg-emerald-50/30';
     Icon = ShieldCheck;
   } else if (normStatus === 'fail' || normStatus === 'softfail') {
-    styles = 'bg-red-50 text-red-700 border-red-200';
+    styles = 'border-red-600 text-red-600 bg-red-50/30';
     Icon = ShieldAlert;
   } else if (normStatus !== 'none') {
-    styles = 'bg-amber-50 text-amber-700 border-amber-200';
+    styles = 'border-amber-600 text-amber-600 bg-amber-50/30';
   }
 
   return (
-    <div className={`flex flex-col items-center justify-center rounded-xl border p-4 transition ${styles}`}>
-      <Icon className="h-5 w-5 mb-2" />
-      <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">{label}</span>
-      <span className="mt-1 text-sm font-bold">{labelText.toUpperCase()}</span>
+    <div className={`flex flex-col items-center justify-center border-2 py-6 px-4 transition-all ${styles}`}>
+      <Icon className="h-6 w-6 mb-3" />
+      <span className="text-[9px] font-black uppercase tracking-[0.3em] opacity-80">{label}</span>
+      <span className="mt-2 text-sm font-black uppercase tracking-tighter">{labelText}</span>
     </div>
   );
 }

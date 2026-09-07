@@ -9,7 +9,7 @@ import {
   LayoutDashboard,
   Settings,
   ShieldCheck,
-  Sparkles,
+  X,
 } from 'lucide-react';
 
 const navigation = [
@@ -40,88 +40,126 @@ const navigation = [
   },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  mobileOpen: boolean;
+  onClose: () => void;
+}
+
+export default function Sidebar({
+  mobileOpen,
+  onClose,
+}: SidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white">
-      {/* Brand */}
-      <div className="flex h-16 items-center border-b border-slate-200 px-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white">
-          <Sparkles className="h-5 w-5" />
+    <>
+      {/* Mobile Overlay */}
+      {mobileOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation"
+          onClick={onClose}
+          className="fixed inset-0 z-40 bg-black/20 lg:hidden"
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={`
+          fixed left-0 top-0 z-50 flex h-screen w-64 shrink-0
+          flex-col border-r border-slate-200 bg-white
+          transition-transform duration-200 ease-out
+          ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:translate-x-0
+        `}
+      >
+        {/* Brand */}
+        <div className="flex h-20 items-center justify-between px-6">
+          <div className="flex items-center gap-3">
+            <div className="h-6 w-1 bg-indigo-600" />
+
+            <div>
+              <h1 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">
+                Forensics
+              </h1>
+            </div>
+          </div>
+
+          {/* Mobile Close Button */}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close navigation"
+            className="p-1 text-slate-400 transition hover:text-slate-900 lg:hidden"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
-        <div className="ml-3">
-          <h1 className="text-sm font-bold tracking-tight text-slate-900">
-            Email Forensics
-          </h1>
-          <p className="text-[11px] text-slate-500">
-            Investigation Platform
+        {/* Navigation */}
+        <nav className="flex-1 px-4 py-8">
+          <p className="mb-6 px-4 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">
+            Workspace
           </p>
-        </div>
-      </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-5">
-        <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-          Workspace
-        </p>
+          <div className="space-y-1">
+            {navigation.map((item) => {
+              const Icon = item.icon;
 
-        <div className="space-y-1">
-          {navigation.map((item) => {
-            const Icon = item.icon;
+              const isActive =
+                item.href === '/'
+                  ? pathname === '/'
+                  : pathname.startsWith(item.href);
 
-            const isActive =
-              item.href === '/'
-                ? pathname === '/'
-                : pathname.startsWith(item.href);
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                  isActive
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <Icon
-                  className={`h-[18px] w-[18px] ${
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onClose}
+                  className={`group flex items-center gap-4 px-4 py-3 text-[11px] font-bold uppercase tracking-widest transition-all ${
                     isActive
-                      ? 'text-indigo-600'
-                      : 'text-slate-400 group-hover:text-slate-600'
+                      ? 'border-r-2 border-indigo-600 text-indigo-600'
+                      : 'text-slate-500 hover:text-slate-900'
                   }`}
-                />
+                >
+                  <Icon
+                    className={`h-4 w-4 ${
+                      isActive
+                        ? 'text-indigo-600'
+                        : 'text-slate-400 group-hover:text-slate-600'
+                    }`}
+                  />
 
-                <span>{item.name}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
 
-      {/* Bottom */}
-      <div className="border-t border-slate-200 p-3">
-        <Link
-          href="/settings"
-          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-            pathname.startsWith('/settings')
-              ? 'bg-indigo-50 text-indigo-700'
-              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-          }`}
-        >
-          <Settings
-            className={`h-[18px] w-[18px] ${
+        {/* Bottom */}
+        <div className="border-t border-slate-100 p-4">
+          <Link
+            href="/settings"
+            onClick={onClose}
+            className={`flex items-center gap-4 px-4 py-3 text-[11px] font-bold uppercase tracking-widest transition-all ${
               pathname.startsWith('/settings')
-                ? 'text-indigo-600'
-                : 'text-slate-400'
+                ? 'border-r-2 border-indigo-600 text-indigo-600'
+                : 'text-slate-500 hover:text-slate-900'
             }`}
-          />
+          >
+            <Settings
+              className={`h-4 w-4 ${
+                pathname.startsWith('/settings')
+                  ? 'text-indigo-600'
+                  : 'text-slate-400'
+              }`}
+            />
 
-          <span>Settings</span>
-        </Link>
-      </div>
-    </aside>
+            <span>Settings</span>
+          </Link>
+        </div>
+      </aside>
+    </>
   );
 }

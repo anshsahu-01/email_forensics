@@ -28,8 +28,8 @@ export default function IntelligencePage() {
       setLoading(true);
       const data = await fetchCases();
       setCases(data);
-    } catch (err) {
-      setError('Failed to load intelligence data.');
+    } catch {
+      setError('Intelligence node synchronization failed.');
     } finally {
       setLoading(false);
     }
@@ -42,12 +42,10 @@ export default function IntelligencePage() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Aggregate all indicators from all cases
   const allIndicators = cases.flatMap(c =>
     (c.indicators || []).map(i => ({ ...i, caseId: c.id, caseSubject: c.header?.subject }))
   );
 
-  // Deduplicate indicators by value, keeping the most "malicious" result if multiple exist
   const uniqueIndicators = Object.values(
     allIndicators.reduce((acc, curr) => {
       const existing = acc[curr.value];
@@ -66,123 +64,127 @@ export default function IntelligencePage() {
   const maliciousCount = uniqueIndicators.filter(i => (i.vtMalicious ?? 0) > 0).length;
 
   return (
-    <div className="min-h-full bg-slate-50 py-8">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="min-h-full bg-white py-12">
+      <div className="mx-auto max-w-7xl px-8">
+        <div className="mb-12 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between border-b border-slate-900 pb-8">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.3em] text-indigo-600">Global Indicators</p>
+            <h1 className="text-4xl font-black uppercase tracking-tighter text-slate-900 sm:text-5xl">
               Threat Intelligence
             </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Aggregated indicators of compromise (IOCs) across all investigations.
+            <p className="mt-4 text-sm font-medium text-slate-500 max-w-lg">
+              Aggregated repository of Indicators of Compromise (IOCs) identified across the active forensic workspace.
             </p>
           </div>
 
           <button
             onClick={loadData}
             disabled={loading}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-3 border-2 border-slate-900 bg-white px-6 py-3 text-[11px] font-black uppercase tracking-widest text-slate-900 transition hover:bg-slate-900 hover:text-white disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            Sync Intelligence
           </button>
         </div>
 
         {/* Intelligence Stats */}
-        <div className="grid gap-4 mb-8 sm:grid-cols-3">
-          <IntelligenceStat label="Total Indicators" value={uniqueIndicators.length} color="text-indigo-600" />
-          <IntelligenceStat label="Malicious Flags" value={maliciousCount} color="text-red-500" />
-          <IntelligenceStat label="Unique Domains/URLs" value={uniqueIndicators.filter(i => i.type === 'URL').length} color="text-indigo-600" />
+        <div className="grid gap-px bg-slate-200 border border-slate-200 mb-12 sm:grid-cols-3">
+          <IntelligenceStat label="Unique Artifacts" value={uniqueIndicators.length} color="text-slate-900" />
+          <IntelligenceStat label="Confirmed Malicious" value={maliciousCount} color="text-red-600" />
+          <IntelligenceStat label="Monitored Endpoints" value={uniqueIndicators.filter(i => i.type === 'URL').length} color="text-slate-900" />
         </div>
 
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div className="mb-10 flex flex-col gap-6 sm:flex-row sm:items-center">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search indicators..."
+              placeholder="Query indicator value or specification..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+              className="w-full border-2 border-slate-200 bg-white py-4 pl-12 pr-4 text-[11px] font-bold uppercase tracking-widest focus:border-slate-900 focus:outline-none transition"
             />
           </div>
         </div>
 
         {error && (
-          <div className="mb-6 flex items-center gap-3 rounded-xl border border-red-100 bg-red-50 p-4 text-red-800">
-            <AlertCircle className="h-5 w-5" />
-            <p className="text-sm font-medium">{error}</p>
+          <div className="mb-8 flex items-center gap-4 border border-red-200 bg-red-50 p-6 text-red-800">
+            <AlertCircle className="h-5 w-5 shrink-0" />
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest">Synchronization Failure</p>
+              <p className="text-sm font-medium">{error}</p>
+            </div>
           </div>
         )}
 
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border border-slate-200 bg-white">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  <th className="px-6 py-4">Indicator</th>
-                  <th className="px-6 py-4">Type</th>
-                  <th className="px-6 py-4">Reputation</th>
-                  <th className="px-6 py-4">Last Seen In</th>
-                  <th className="px-6 py-4 text-right">External</th>
+                <tr className="border-b-2 border-slate-900 bg-slate-50 text-[10px] font-black uppercase tracking-[0.2em] text-slate-900">
+                  <th className="px-8 py-5">Value / Payload</th>
+                  <th className="px-8 py-5">Classification</th>
+                  <th className="px-8 py-5">Reputation</th>
+                  <th className="px-8 py-5">Association</th>
+                  <th className="px-8 py-5 text-right">External</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   [1, 2, 3, 4, 5].map((i) => (
                     <tr key={i} className="animate-pulse">
-                      <td colSpan={5} className="px-6 py-6">
-                        <div className="h-5 rounded bg-slate-100" />
+                      <td colSpan={5} className="px-8 py-8">
+                        <div className="h-6 bg-slate-50 border border-slate-100" />
                       </td>
                     </tr>
                   ))
                 ) : filteredIndicators.length > 0 ? (
                   filteredIndicators.map((item) => (
-                    <tr key={item.id} className="group hover:bg-slate-50/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <p className="font-mono text-[13px] font-semibold text-slate-700 truncate max-w-md">
+                    <tr key={item.id} className="group hover:bg-slate-50 transition-colors">
+                      <td className="px-8 py-6">
+                        <p className="font-mono text-[12px] font-black text-slate-900 truncate max-w-md bg-slate-50 p-2 border border-slate-100">
                           {item.value}
                         </p>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 border border-slate-200">
+                      <td className="px-8 py-6">
+                        <span className="inline-flex items-center gap-2 border border-slate-200 bg-white px-3 py-1 text-[9px] font-black uppercase tracking-[0.2em] text-slate-600 group-hover:border-slate-900 group-hover:text-slate-900 transition-all">
                           {item.type === 'URL' ? <Link2 className="h-3 w-3" /> : <Globe className="h-3 w-3" />}
                           {item.type}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-8 py-6">
                         {item.vtMalicious !== null ? (
                           <div className="flex items-center gap-2">
                             {(item.vtMalicious ?? 0) > 0 ? (
-                              <span className="flex items-center gap-1 text-red-600 font-bold">
-                                <ShieldAlert className="h-3.5 w-3.5" />
-                                {item.vtMalicious} Malicious
+                              <span className="flex items-center gap-2 text-red-600 font-black text-[10px] uppercase tracking-widest">
+                                <ShieldAlert className="h-4 w-4" />
+                                {item.vtMalicious} DETECTIONS
                               </span>
                             ) : (
-                              <span className="flex items-center gap-1 text-emerald-600 font-bold">
-                                <ShieldCheck className="h-3.5 w-3.5" />
-                                Clean
+                              <span className="flex items-center gap-2 text-emerald-600 font-black text-[10px] uppercase tracking-widest">
+                                <ShieldCheck className="h-4 w-4" />
+                                VERIFIED CLEAN
                               </span>
                             )}
                           </div>
                         ) : (
-                          <span className="text-slate-400 italic text-xs">No data</span>
+                          <span className="text-slate-400 font-bold uppercase text-[9px] tracking-widest">UNRATED</span>
                         )}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-8 py-6">
                         <Link
                           href={`/cases/${item.caseId}`}
-                          className="text-indigo-600 hover:underline font-medium truncate max-w-[200px] block"
+                          className="text-indigo-600 hover:text-slate-900 font-black text-[10px] uppercase tracking-widest truncate max-w-[200px] block transition-all"
                         >
-                          {item.caseSubject || `Case #${item.caseId}`}
+                          {item.caseSubject || `REF-${item.caseId}`}
                         </Link>
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-8 py-6 text-right">
                         <a
                           href={`https://www.virustotal.com/gui/search/${encodeURIComponent(item.value)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-slate-400 hover:text-indigo-600 transition"
+                          className="inline-flex items-center gap-2 text-slate-400 hover:text-slate-900 transition-all"
                         >
                           <ExternalLink className="h-4 w-4" />
                         </a>
@@ -192,11 +194,11 @@ export default function IntelligencePage() {
                 ) : (
                   <tr>
                     <td colSpan={5}>
-                      <div className="py-12">
+                      <div className="py-24">
                         <EmptyState
                           icon={BarChart3}
-                          title="No indicators found"
-                          description={searchQuery ? "No results matching your search query." : "No threat intelligence data available yet."}
+                          title="No Intelligence Found"
+                          description={searchQuery ? "The query parameters matched no indexed indicators." : "No threat intelligence data has been indexed yet."}
                         />
                       </div>
                     </td>
@@ -213,9 +215,9 @@ export default function IntelligencePage() {
 
 function IntelligenceStat({ label, value, color }: { label: string, value: number, color: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-      <p className={`mt-2 text-3xl font-bold tracking-tight ${color}`}>{value}</p>
+    <div className="bg-white p-8">
+      <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 mb-3">{label}</p>
+      <p className={`text-4xl font-black tracking-tighter ${color}`}>{value}</p>
     </div>
   );
 }

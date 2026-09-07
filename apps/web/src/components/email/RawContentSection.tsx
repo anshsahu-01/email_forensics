@@ -16,24 +16,24 @@ export default function RawContentSection({ content }: RawContentSectionProps) {
   };
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
-      <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-        <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-          <FileCode className="h-4 w-4 text-indigo-500" />
-          Raw Message Content
+    <div className="border border-slate-200 bg-white overflow-hidden">
+      <div className="bg-slate-50 px-8 py-4 border-b border-slate-200 flex items-center justify-between">
+        <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900 flex items-center gap-2">
+          <FileCode className="h-4 w-4 text-indigo-600" />
+          Raw Forensic Payload
         </h2>
         <button
           onClick={handleCopy}
           disabled={!content}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+          className="inline-flex items-center gap-2 border-2 border-slate-900 px-4 py-2 text-[9px] font-black uppercase tracking-widest text-slate-900 hover:bg-slate-900 hover:text-white transition-all"
         >
           {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-          {copied ? 'Copied' : 'Copy Raw'}
+          {copied ? 'PAYLOAD COPIED' : 'COPY PAYLOAD'}
         </button>
       </div>
       <div className="p-0">
-        <pre className="p-6 text-[12px] font-mono text-slate-600 bg-slate-900 overflow-x-auto min-h-[400px] leading-relaxed selection:bg-indigo-500/30">
-          <code>{content || 'No message content available.'}</code>
+        <pre className="p-8 text-[12px] font-mono text-white bg-slate-900 overflow-x-auto min-h-[500px] leading-relaxed selection:bg-indigo-500/50">
+          <code>{content || 'NO PAYLOAD DATA OBSERVED.'}</code>
         </pre>
       </div>
     </div>

@@ -19,16 +19,16 @@ export default function RiskBadge({ score, level, className = '' }: RiskBadgePro
   const riskLevel = level ? (level.toUpperCase() as RiskLevel) : getRiskLevel(score);
 
   const styles = {
-    HIGH: 'bg-red-50 text-red-700 border-red-200',
-    MEDIUM: 'bg-amber-50 text-amber-700 border-amber-200',
-    LOW: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    UNKNOWN: 'bg-slate-50 text-slate-700 border-slate-200',
+    HIGH: 'text-red-600 border-red-200 bg-red-50',
+    MEDIUM: 'text-amber-600 border-amber-200 bg-amber-50',
+    LOW: 'text-emerald-600 border-emerald-200 bg-emerald-50',
+    UNKNOWN: 'text-slate-600 border-slate-200 bg-slate-50',
   };
 
   const currentStyle = styles[riskLevel as keyof typeof styles] || styles.UNKNOWN;
 
   return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-bold tracking-wider ${currentStyle} ${className}`}>
+    <span className={`inline-flex items-center border px-2 py-0.5 text-[10px] font-bold tracking-widest uppercase ${currentStyle} ${className}`}>
       {riskLevel}
     </span>
   );

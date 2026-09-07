@@ -6,10 +6,12 @@ import {
   FileSearch,
   Upload,
   X,
-  ShieldCheck,
   AlertCircle,
   ArrowLeft,
-  Loader2
+  Loader2,
+  Server,
+  Globe,
+  Database
 } from 'lucide-react';
 import Link from 'next/link';
 import { analyzeEmail } from '@/lib/api';
@@ -26,7 +28,7 @@ export default function AnalyzePage() {
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith('.eml')) {
-      setError('Invalid file format. Please upload an .eml file.');
+      setError('Unsupported file format. Artifact must be in .eml specification.');
       return;
     }
 
@@ -51,102 +53,97 @@ export default function AnalyzePage() {
       router.push(`/cases/${analyzedCase.id}`);
     } catch (err) {
       console.error('Analysis failed:', err);
-      setError(err instanceof Error ? err.message : 'Analysis failed. Please try again.');
+      setError(err instanceof Error ? err.message : 'Analysis failed. Forensic engine returned an error.');
     } finally {
       setUploading(false);
     }
   };
 
   return (
-    <div className="min-h-full bg-slate-50 py-8">
-      <div className="mx-auto max-w-3xl px-6 lg:px-8">
+    <div className="min-h-full bg-white py-12">
+      <div className="mx-auto max-w-4xl px-8">
         <Link
           href="/"
-          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-indigo-600 transition"
+          className="mb-10 inline-flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-indigo-600 transition"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Dashboard
+          Back to Terminal
         </Link>
 
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            Forensic Email Analysis
+        <div className="mb-12 border-b border-slate-900 pb-8">
+          <h1 className="text-4xl font-black uppercase tracking-tighter text-slate-900 sm:text-5xl">
+            Artifact Intake
           </h1>
-          <p className="mt-2 text-slate-600">
-            Upload an email file to perform deep header analysis, route tracking, and threat intelligence enrichment.
+          <p className="mt-4 text-sm font-medium text-slate-500 max-w-2xl">
+            Upload raw email data for deep-packet header inspection, infrastructure route mapping, and external threat intelligence enrichment.
           </p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="border border-slate-200 bg-white">
           {!selectedFile ? (
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="group flex min-h-[300px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 transition-all hover:border-indigo-400 hover:bg-indigo-50/30"
+              className="group flex min-h-[400px] cursor-pointer flex-col items-center justify-center border-2 border-dashed border-slate-200 bg-slate-50 transition-all hover:border-slate-900 hover:bg-white"
             >
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 group-hover:ring-indigo-200 transition-all">
-                <Upload className="h-8 w-8 text-indigo-600" />
+              <div className="mb-8 flex h-20 w-20 items-center justify-center border-2 border-slate-200 bg-white transition-all group-hover:border-slate-900">
+                <Upload className="h-8 w-8 text-slate-900" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-900">Click or drag to upload</h3>
-              <p className="mt-2 text-sm text-slate-500 max-w-xs text-center">
-                Standard EML files (.eml) containing full headers and message body.
+              <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-900">Initiate Upload</h3>
+              <p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 max-w-xs text-center">
+                RFC-822 / .EML Specification Only
               </p>
-              <div className="mt-6 flex flex-wrap justify-center gap-3">
-                <div className="flex items-center gap-1.5 rounded-full bg-slate-200/50 px-3 py-1 text-[11px] font-medium text-slate-600">
-                  <ShieldCheck className="h-3 w-3" /> Header Analysis
-                </div>
-                <div className="flex items-center gap-1.5 rounded-full bg-slate-200/50 px-3 py-1 text-[11px] font-medium text-slate-600">
-                  <ShieldCheck className="h-3 w-3" /> Route Mapping
-                </div>
-                <div className="flex items-center gap-1.5 rounded-full bg-slate-200/50 px-3 py-1 text-[11px] font-medium text-slate-600">
-                  <ShieldCheck className="h-3 w-3" /> Threat Intel
-                </div>
+
+              <div className="mt-10 flex flex-wrap justify-center gap-6">
+                <FeatureItem icon={Server} label="SMTP Routing" />
+                <FeatureItem icon={Globe} label="Geo-Intel" />
+                <FeatureItem icon={Database} label="IOC Extraction" />
               </div>
             </div>
           ) : (
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md">
-                    <FileSearch className="h-6 w-6" />
+            <div className="p-10">
+              <div className="flex items-start justify-between border border-indigo-100 bg-indigo-50/20 p-8">
+                <div className="flex items-center gap-6">
+                  <div className="flex h-16 w-16 items-center justify-center border-2 border-slate-900 bg-slate-900 text-white">
+                    <FileSearch className="h-8 w-8" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-slate-900 truncate max-w-md">
+                    <h3 className="text-sm font-black uppercase tracking-tight text-slate-900 truncate max-w-md">
                       {selectedFile.name}
                     </h3>
-                    <p className="text-sm text-slate-500">
-                      {(selectedFile.size / 1024).toFixed(1)} KB • Email File
+                    <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                      {(selectedFile.size / 1024).toFixed(1)} KB • Verified Specification
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={removeFile}
-                  className="rounded-full p-1 text-slate-400 hover:bg-white hover:text-slate-600 transition"
+                  className="text-slate-400 hover:text-red-600 transition"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-6 w-6" />
                 </button>
               </div>
 
-              <div className="mt-8 flex flex-col gap-3">
+              <div className="mt-10 flex flex-col gap-4">
                 <button
                   onClick={handleUpload}
                   disabled={uploading}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="flex w-full items-center justify-center gap-3 bg-slate-900 px-8 py-5 text-[11px] font-black uppercase tracking-[0.2em] text-white transition hover:bg-slate-800 disabled:opacity-50"
                 >
                   {uploading ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Performing Analysis...
+                      Executing Forensic Triage...
                     </>
                   ) : (
-                    'Start Deep Forensic Analysis'
+                    'Initiate Deep Forensic Analysis'
                   )}
                 </button>
                 <button
                   onClick={removeFile}
                   disabled={uploading}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                  className="w-full border-2 border-slate-200 bg-white px-8 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-slate-900 transition hover:border-slate-900"
                 >
-                  Cancel
+                  Abort Intake
                 </button>
               </div>
             </div>
@@ -159,33 +156,53 @@ export default function AnalyzePage() {
             onChange={handleFileChange}
             className="hidden"
           />
-
-          {error && (
-            <div className="mt-6 flex items-start gap-3 rounded-xl bg-red-50 p-4 border border-red-100">
-              <AlertCircle className="h-5 w-5 shrink-0 text-red-500" />
-              <p className="text-sm font-medium text-red-800">{error}</p>
-            </div>
-          )}
         </div>
 
-        <div className="mt-12 grid gap-6 sm:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 p-5">
-            <h4 className="font-semibold text-slate-900">What is analyzed?</h4>
-            <ul className="mt-3 space-y-2 text-sm text-slate-500">
-              <li className="flex items-center gap-2">• SMTP hop chain and IP routing</li>
-              <li className="flex items-center gap-2">• SPF, DKIM, and DMARC alignment</li>
-              <li className="flex items-center gap-2">• URL and Attachment indicators</li>
-              <li className="flex items-center gap-2">• Sender reputation and Geo-location</li>
+        {error && (
+          <div className="mt-8 flex items-start gap-4 border border-red-200 bg-red-50 p-6">
+            <AlertCircle className="h-5 w-5 shrink-0 text-red-600" />
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-red-800">Process Halted</p>
+              <p className="mt-1 text-sm font-medium text-red-700">{error}</p>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-16 grid gap-12 sm:grid-cols-2">
+          <section>
+            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900 mb-6">Forensic Scope</h4>
+            <ul className="space-y-4">
+              <ScopeItem text="Verification of SMTP hop-chain integrity" />
+              <ScopeItem text="Authentication alignment (SPF, DKIM, DMARC)" />
+              <ScopeItem text="Recursive extraction of indicators (URL/IP)" />
+              <ScopeItem text="Reputation scoring via multi-source intelligence" />
             </ul>
-          </div>
-          <div className="rounded-xl border border-slate-200 p-5">
-            <h4 className="font-semibold text-slate-900">Data Privacy</h4>
-            <p className="mt-3 text-sm text-slate-500">
-              Emails are processed securely. Extracted indicators are enriched using external services like VirusTotal. No content is shared with third parties.
+          </section>
+          <section>
+            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900 mb-6">Security Protocol</h4>
+            <p className="text-xs font-medium text-slate-500 leading-relaxed">
+              All processed data is confined to the secure workspace. Intelligence enrichment utilizes encrypted API channels. Raw artifacts are stored in encrypted volumes for chain-of-custody preservation.
             </p>
-          </div>
+          </section>
         </div>
       </div>
     </div>
+  );
+}
+
+function FeatureItem({ icon: Icon, label }: { icon: React.ComponentType<{ className?: string }>, label: string }) {
+  return (
+    <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-500">
+      <Icon className="h-3 w-3" /> {label}
+    </div>
+  );
+}
+
+function ScopeItem({ text }: { text: string }) {
+  return (
+    <li className="flex items-start gap-3 text-[11px] font-bold text-slate-500">
+      <div className="mt-1.5 h-1 w-1 shrink-0 bg-indigo-600" />
+      {text}
+    </li>
   );
 }

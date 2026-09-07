@@ -1,55 +1,73 @@
 'use client';
 
-import { Bell, Search, UserCircle } from 'lucide-react';
+import {
+  Bell,
+  Menu,
+  Search,
+  UserCircle,
+} from 'lucide-react';
 
-export default function Header() {
+interface HeaderProps {
+  onMenuClick: () => void;
+}
+
+export default function Header({
+  onMenuClick,
+}: HeaderProps) {
   return (
-    <header className="h-16 border-b border-slate-200 bg-white px-6 flex items-center justify-between">
+    <header className="fixed left-0 right-0 top-0 z-30 flex h-20 items-center justify-between border-b border-slate-100 bg-white px-4 sm:px-6 lg:left-64 lg:px-8">
       {/* Left */}
-      <div>
-        <h1 className="text-lg font-semibold text-slate-900">
-          Email Forensics
-        </h1>
-        <p className="text-xs text-slate-500">
-          Analyze and investigate suspicious emails
-        </p>
+      <div className="flex min-w-0 items-center gap-3">
+        {/* Mobile Menu */}
+        <button
+          type="button"
+          onClick={onMenuClick}
+          aria-label="Open navigation"
+          className="p-1.5 text-slate-400 transition hover:text-slate-900 lg:hidden"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+
+        <h2 className="truncate text-[10px] font-black uppercase tracking-[0.25em] text-slate-900 sm:text-xs sm:tracking-[0.3em]">
+          Investigation Portal
+        </h2>
       </div>
 
       {/* Right */}
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-4 sm:gap-6">
+        {/* Search */}
         <button
           type="button"
-          className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
+          className="text-slate-400 transition hover:text-slate-900"
           aria-label="Search"
         >
           <Search className="h-4 w-4" />
         </button>
 
+        {/* Notifications */}
         <button
           type="button"
-          className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
+          className="text-slate-400 transition hover:text-slate-900"
           aria-label="Notifications"
         >
           <Bell className="h-4 w-4" />
         </button>
 
-        <div className="ml-2 h-8 w-px bg-slate-200" />
-
-        <button
-          type="button"
-          className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-100 transition"
-        >
-          <UserCircle className="h-7 w-7 text-slate-400" />
-
-          <div className="hidden sm:block text-left">
-            <p className="text-sm font-medium text-slate-800">
-              Investigator
+        {/* User */}
+        <div className="flex items-center gap-3 border-l border-slate-100 pl-3 sm:pl-4">
+          {/* Hide text on small screens */}
+          <div className="hidden text-right sm:block">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">
+              Analyst
             </p>
-            <p className="text-[11px] text-slate-500">
-              Forensic Analyst
+
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+              Level 3 Access
             </p>
           </div>
-        </button>
+
+          <UserCircle className="h-6 w-6 text-slate-300" />
+        </div>
       </div>
     </header>
   );

@@ -23,27 +23,28 @@ export default function RiskOverview({
     <div>
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Icon className={`h-4 w-4 ${className}`} />
-          <span className="text-sm font-medium text-slate-700">
+          <Icon className={`h-3.5 w-3.5 ${className}`} />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
             {label}
           </span>
         </div>
 
-        <span className="text-sm font-semibold text-slate-900">
+        <span className="text-sm font-bold text-slate-900">
           {value}
         </span>
       </div>
 
-      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+      <div className="h-1 overflow-hidden bg-slate-100">
         <div
-          className={`h-full rounded-full transition-all ${barClassName}`}
+          className={`h-full transition-all ${barClassName}`}
           style={{ width: `${percentage}%` }}
         />
       </div>
 
-      <p className="mt-2 text-[11px] text-slate-400">
-        {percentage}% of analyzed cases
+      <p className="mt-3 text-[10px] font-medium text-slate-400">
+        {percentage}% of investigations
       </p>
     </div>
   );
 }
+

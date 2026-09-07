@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 
@@ -8,16 +11,21 @@ interface DashboardShellProps {
 export default function DashboardShell({
   children,
 }: DashboardShellProps) {
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      {/* Sidebar */}
-      <Sidebar />
+    <div className="min-h-screen bg-white">
+      <Sidebar
+        mobileOpen={mobileSidebarOpen}
+        onClose={() => setMobileSidebarOpen(false)}
+      />
 
-      {/* Main Area */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Header />
+      <div className="min-h-screen lg:ml-64">
+        <Header
+          onMenuClick={() => setMobileSidebarOpen(true)}
+        />
 
-        <main className="min-w-0 flex-1 overflow-y-auto">
+        <main className="pt-20">
           {children}
         </main>
       </div>

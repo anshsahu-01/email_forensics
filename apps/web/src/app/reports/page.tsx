@@ -44,82 +44,83 @@ export default function ReportsPage() {
   const lowRisk = cases.filter(c => getRiskLevel(c.threatScore) === 'LOW').length;
 
   return (
-    <div className="min-h-full bg-slate-50 py-8">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="mb-8 flex items-center justify-between">
+    <div className="min-h-full bg-white py-12">
+      <div className="mx-auto max-w-7xl px-8">
+        <div className="mb-12 flex items-center justify-between border-b border-slate-900 pb-8">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.3em] text-indigo-600">Executive Summary</p>
+            <h1 className="text-4xl font-black uppercase tracking-tighter text-slate-900 sm:text-5xl">
               Forensic Reporting
             </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Summarized investigation reports and activity analytics.
+            <p className="mt-4 text-sm font-medium text-slate-500 max-w-md">
+              Aggregated investigation summaries and operational threat metrics for executive review.
             </p>
           </div>
 
           <button
             onClick={loadData}
-            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition"
+            className="inline-flex items-center justify-center gap-3 border-2 border-slate-900 bg-white px-6 py-3 text-[11px] font-black uppercase tracking-widest text-slate-900 transition hover:bg-slate-900 hover:text-white"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            Sync Dashboard
           </button>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid gap-6 mb-8 sm:grid-cols-2 lg:grid-cols-4">
-          <ReportStatCard label="Total Reports" value={cases.length} icon={FileText} />
-          <ReportStatCard label="Critical Threats" value={highRisk} icon={AlertTriangle} color="text-red-600" />
-          <ReportStatCard label="Suspicious Activity" value={mediumRisk} icon={TrendingUp} color="text-amber-600" />
-          <ReportStatCard label="Clean / Safe" value={lowRisk} icon={CheckCircle2} color="text-emerald-600" />
+        <div className="grid gap-px bg-slate-200 border border-slate-200 mb-12 sm:grid-cols-2 lg:grid-cols-4">
+          <ReportStatCard label="Total Summaries" value={cases.length} icon={FileText} />
+          <ReportStatCard label="Critical Vectors" value={highRisk} icon={AlertTriangle} color="text-red-600" />
+          <ReportStatCard label="Anomalous Activity" value={mediumRisk} icon={TrendingUp} color="text-amber-600" />
+          <ReportStatCard label="Verified Baseline" value={lowRisk} icon={CheckCircle2} color="text-emerald-600" />
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
-            <h2 className="font-bold text-slate-900">Recent Investigation Reports</h2>
-            <button className="text-xs font-bold text-indigo-600 hover:text-indigo-700">Export All (JSON)</button>
+        <div className="border border-slate-200 bg-white">
+          <div className="px-8 py-6 border-b-2 border-slate-900 flex items-center justify-between bg-slate-50">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900">Recent Investigation Summaries</h2>
+            <button className="text-[9px] font-black uppercase tracking-widest text-indigo-600 hover:text-slate-900 transition-all">Export Workspace (JSON)</button>
           </div>
 
           <div className="divide-y divide-slate-100">
             {loading ? (
-              [1, 2, 3].map(i => <div key={i} className="p-8 animate-pulse bg-slate-50/50 my-2 mx-6 rounded-xl" />)
+              [1, 2, 3].map(i => <div key={i} className="p-10 animate-pulse bg-slate-50/50 my-4 mx-8 border border-slate-100" />)
             ) : cases.length > 0 ? (
               cases.map((c) => (
-                <div key={c.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 hover:bg-slate-50 transition-colors">
-                  <div className="flex items-start gap-4">
-                    <div className={`mt-1 p-2 rounded-lg bg-white border ${
-                      getRiskLevel(c.threatScore) === 'HIGH' ? 'border-red-200 text-red-500' :
-                      getRiskLevel(c.threatScore) === 'MEDIUM' ? 'border-amber-200 text-amber-500' : 'border-emerald-200 text-emerald-500'
+                <div key={c.id} className="p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-10 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-start gap-6">
+                    <div className={`mt-1 flex h-12 w-12 items-center justify-center border-2 ${
+                      getRiskLevel(c.threatScore) === 'HIGH' ? 'border-red-600 text-red-600 bg-red-50' :
+                      getRiskLevel(c.threatScore) === 'MEDIUM' ? 'border-amber-600 text-amber-600 bg-amber-50' : 'border-emerald-600 text-emerald-600 bg-emerald-50'
                     }`}>
-                      <FileText className="h-5 w-5" />
+                      <FileText className="h-6 w-6" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-900">{c.header?.subject || 'Unnamed Investigation'}</h3>
-                      <div className="mt-1 flex items-center gap-3 text-xs text-slate-500 font-medium">
-                        <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(c.createdAt).toLocaleDateString()}</span>
+                      <h3 className="text-xs font-black uppercase tracking-tight text-slate-900">{c.header?.subject || 'UNLABELED INVESTIGATION'}</h3>
+                      <div className="mt-2 flex items-center gap-4 text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">
+                        <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3 text-slate-300" /> {new Date(c.createdAt).toLocaleDateString()}</span>
                         <span>•</span>
-                        <span>Case #{c.id}</span>
+                        <span>REF-{c.id}</span>
                         <span>•</span>
                         <RiskBadge score={c.threatScore} />
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:border-indigo-200 hover:text-indigo-600 transition">
+                  <div className="flex items-center gap-4">
+                    <button className="flex items-center gap-2 border border-slate-900 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-900 hover:bg-slate-900 hover:text-white transition-all">
                       <Download className="h-3.5 w-3.5" />
-                      PDF
+                      PDF Report
                     </button>
                     <a
                       href={`/cases/${c.id}`}
-                      className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 transition"
+                      className="flex items-center gap-2 border-2 border-slate-900 bg-slate-900 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white transition hover:bg-slate-800"
                     >
-                      View Full Report
+                      Access Ledger
                     </a>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="py-20">
-                <EmptyState icon={ShieldCheck} title="No reports generated" description="Analysis reports will appear here once you process email files." />
+              <div className="py-24">
+                <EmptyState icon={ShieldCheck} title="No Summary Data" description="Investigation reports will be generated upon successful artifact processing." />
               </div>
             )}
           </div>
@@ -129,14 +130,14 @@ export default function ReportsPage() {
   );
 }
 
-function ReportStatCard({ label, value, icon: Icon, color = "text-slate-600" }: { label: string, value: number, icon: React.ComponentType<{ className?: string }>, color?: string }) {
+function ReportStatCard({ label, value, icon: Icon, color = "text-slate-900" }: { label: string, value: number, icon: React.ComponentType<{ className?: string }>, color?: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex items-center gap-3 mb-2">
+    <div className="bg-white p-8">
+      <div className="flex items-center gap-3 mb-4">
         <Icon className={`h-4 w-4 ${color}`} />
-        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
+        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">{label}</span>
       </div>
-      <p className="text-3xl font-bold tracking-tight text-slate-900">{value}</p>
+      <p className="text-4xl font-black tracking-tighter text-slate-900">{value}</p>
     </div>
   );
 }
