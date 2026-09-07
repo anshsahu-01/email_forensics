@@ -1,1243 +1,286 @@
 'use client';
 
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  FileSearch,
+  FileText,
+  RefreshCw,
+  ShieldAlert,
+  ShieldCheck,
+  Upload,
+  XCircle,
+} from 'lucide-react';
+import { fetchCases, analyzeEmail } from '@/lib/api';
+import { EmailCase } from '@/types';
+import StatCard from '@/components/common/StatCard';
+import RiskBadge, { getRiskLevel } from '@/components/common/RiskBadge';
+import EmptyState from '@/components/common/EmptyState';
+import RiskOverview from '@/components/dashboard/RiskOverview';
 
-
-import { useCallback, useState, useEffect, useRef } from 'react';
-
-import { Upload, ShieldAlert, CheckCircle, FileText, Globe, RefreshCw } from 'lucide-react';
-
-
-
-interface EmailHeader {
-
-  subject: string | null;
-
-  senderFrom: string | null;
-
-  to: string | null;
-
-  cc: string | null;
-
-  replyTo: string | null;
-
-  date: string | null;
-
-  messageId: string | null;
-
-  returnPath: string | null;
-
-  spfStatus: string | null;
-
-  dkimStatus: string | null;
-
-  dmarcStatus: string | null;
-
+function formatDate(value: string | null) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
-
-
-interface EmailIndicator {
-
-  type: string | null;
-
-  value: string | null;
-
-  details?: string | null;
-
-  virusTotalStatus?: string | null;
-
-  virusTotalMalicious?: number | null;
-
-  virusTotalSuspicious?: number | null;
-
-  virusTotalHarmless?: number | null;
-
-  virusTotalUndetected?: number | null;
-
-  abuseIpDbStatus?: string | null;
-
-  abuseConfidenceScore?: number | null;
-
-  totalReports?: number | null;
-
-  lastReportedAt?: string | null;
-
-  // ASN / Network Intelligence — populated from MaxMind GeoLite2-ASN lookup
-  asnNumber?: string | null;
-
-  asnOrg?: string | null;
-
-  isp?: string;
-
-  country?: string;
-
-}
-
-
-
-interface ReceivedHeaderInfo {
-
-  rawValue?: string | null;
-
-  fromHost?: string | null;
-
-  fromIp?: string | null;
-
-  byHost?: string | null;
-
-  byIp?: string | null;
-
-  timestamp?: string | number | null;
-
-}
-
-
-
-interface EmailCase {
-
-  id: number;
-
-  fileName: string | null;
-
-  fileHash: string | null;
-
-  analysisStatus: string | null;
-
-  threatScore: number | null;
-
-  riskLevel?: string | null;
-
-  aiSummary?: string | null;
-
-  createdAt: string | null;
-
-  header: EmailHeader | null;
-
-  indicators: EmailIndicator[] | null;
-
-  originatingIp?: string | null;
-
-  receivedHeaders?: string | null;
-
-  spoofingRisk?: string | null;
-
-  spoofingFindings?: string | null;
-
-  // Approximate IP geolocation — populated from MaxMind GeoIP2 lookup.
-  // All fields are nullable; missing values are displayed gracefully as "—".
-  geoCountry?: string | null;
-
-  geoCity?: string | null;
-
-  geoLatitude?: number | null;
-
-  geoLongitude?: number | null;
-
-  geoTimezone?: string | null;
-
-  // Sender IP intelligence — populated from explicit client-origin headers only.
-  // null senderIp means the sender device IP was not exposed by message headers.
-  senderIp?: string | null;
-
-  senderIpSource?: string | null;
-
-  senderIpConfidence?: string | null;
-
-  connectingIp?: string | null;
-
-  connectingIpSource?: string | null;
-
-  connectingIpConfidence?: string | null;
-
-}
-
-
-
-export default function ForensicDashboard() {
-
-  const [file, setFile] = useState<File | null>(null);
-
+export default function DashboardPage() {
+  const router = useRouter();
+  const [history, setHistory] = useState<EmailCase[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [loading, setLoading] = useState(false);
-
-  const [currentCase, setCurrentCase] = useState<EmailCase | null>(null);
-
-  const [history, setHistory] = useState<EmailCase[]>([]);
-
-  const [error, setError] = useState<string | null>(null);
-
-
-
-  const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api/v1';
-
-
-
-  const displayValue = (value: string | number | null | undefined) => value === null || value === undefined || value === '' ? '—' : String(value);
-
-
-
-  const displayTimestamp = (value: string | number | null | undefined) => {
-
-    if (value === null || value === undefined || value === '') return '—';
-
-    const timestamp = typeof value === 'number' ? value * 1000 : value;
-
-    const date = new Date(timestamp);
-
-    return Number.isNaN(date.getTime()) ? displayValue(value) : date.toISOString();
-
-  };
-
-
-
-  const receivedHeaders: ReceivedHeaderInfo[] = (() => {
-
-    if (!currentCase?.receivedHeaders) return [];
-
+  const loadCases = useCallback(async () => {
     try {
-
-      const parsed = JSON.parse(currentCase.receivedHeaders);
-
-      return Array.isArray(parsed) ? parsed : [];
-
-    } catch {
-
-      return [];
-
-    }
-
-  })();
-
-
-
-  const spoofingFindings: string[] = (() => {
-
-    if (!currentCase?.spoofingFindings) return [];
-
-    try {
-
-      const parsed = JSON.parse(currentCase.spoofingFindings);
-
-      return Array.isArray(parsed) ? parsed : [];
-
-    } catch {
-
-      return [];
-
-    }
-
-  })();
-
-
-
-  const urlIndicators = (currentCase?.indicators ?? []).filter((indicator) => indicator.type === 'URL');
-
-
-
-  const isIpBasedUrl = (value: string | null) => {
-
-    if (!value) return false;
-
-    try {
-
-      const host = new URL(value).hostname;
-
-      return /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host) || host.includes(':');
-
-    } catch {
-
-      return false;
-
-    }
-
-  };
-
-
-
-  const virusTotalStatusClass = (status: string | null | undefined) => {
-
-    switch (status?.toUpperCase()) {
-
-      case 'MALICIOUS': return 'text-red-400';
-
-      case 'SUSPICIOUS': return 'text-amber-300';
-
-      case 'CLEAN': return 'text-green-400';
-
-      case 'ERROR': return 'text-red-300';
-
-      default: return 'text-slate-300';
-
-    }
-
-  };
-
-
-
-  const abuseIpDbStatusClass = (status: string | null | undefined) => {
-
-    switch (status?.toUpperCase()) {
-
-      case 'MALICIOUS': return 'text-red-400';
-
-      case 'SUSPICIOUS': return 'text-amber-300';
-
-      case 'CLEAN': return 'text-green-400';
-
-      case 'ERROR': return 'text-red-300';
-
-      default: return 'text-slate-400';
-
-    }
-
-  };
-
-
-
-  const fetchHistory = useCallback(async () => {
-
-    try {
-
-      const res = await fetch(`${API_URL}/cases`);
-
-      if (res.ok) {
-
-        const data = await res.json();
-
-        setHistory(data);
-
-      }
-
+      setLoading(true);
+      setError(null);
+      const data = await fetchCases();
+      setHistory(data);
     } catch (err) {
-
       console.error('Failed to load cases:', err);
-
+      setError(err instanceof Error ? err.message : 'Unable to connect to the forensic backend.');
+    } finally {
+      setLoading(false);
     }
-
-  }, [API_URL]);
-
-
+  }, []);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      void loadCases();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [loadCases]);
 
-    let active = true;
-
-
-
-    const loadHistory = async () => {
-
-      try {
-
-        const res = await fetch(`${API_URL}/cases`);
-
-        if (active && res.ok) setHistory(await res.json());
-
-      } catch (err) {
-
-        console.error('Failed to load cases:', err);
-
-      }
-
-    };
-
-
-
-    void loadHistory();
-
-    return () => {
-
-      active = false;
-
-    };
-
-  }, [API_URL]);
-
-
-
-  const handleUpload = async (e: React.FormEvent) => {
-
-    e.preventDefault();
-
-    if (!file) return;
-
-
-
-    setLoading(true);
-
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = event.target.files?.[0] ?? null;
+    if (!selected) {
+      setSelectedFile(null);
+      return;
+    }
+    if (!selected.name.toLowerCase().endsWith('.eml')) {
+      setError('Only .eml files are supported.');
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
     setError(null);
+    setSelectedFile(selected);
+  };
 
-
-
-    const formData = new FormData();
-
-    formData.append('file', file);
-
-
-
+  const handleAnalyze = async () => {
+    if (!selectedFile || uploading) return;
     try {
-
-      const res = await fetch(`${API_URL}/emails/analyze`, {
-
-        method: 'POST',
-
-        body: formData,
-
-      });
-
-
-
-      if (!res.ok) throw new Error('Analysis failed or server returned an error.');
-
-
-
-      const data: EmailCase = await res.json();
-
-      setCurrentCase(data);
-
-      fetchHistory();
-
-      setFile(null);
-
-      if (fileInputRef.current) {
-
-        fileInputRef.current.value = '';
-
-      }
-
+      setUploading(true);
+      setError(null);
+      const analyzedCase = await analyzeEmail(selectedFile);
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      router.push(`/cases/${analyzedCase.id}`);
     } catch (err) {
-
-      setError(err instanceof Error ? err.message : 'Something went wrong');
-
+      console.error('Analysis failed:', err);
+      setError(err instanceof Error ? err.message : 'Something went wrong while analyzing the email.');
     } finally {
-
-      setLoading(false);
-
+      setUploading(false);
     }
-
   };
 
+  const totalCases = history.length;
+  const highRiskCases = history.filter(item => getRiskLevel(item.threatScore) === 'HIGH').length;
+  const mediumRiskCases = history.filter(item => getRiskLevel(item.threatScore) === 'MEDIUM').length;
+  const lowRiskCases = history.filter(item => getRiskLevel(item.threatScore) === 'LOW').length;
 
-
-  const getStatusBadge = (status: string | null | undefined) => {
-
-    const s = status?.toUpperCase() || 'UNKNOWN';
-
-    let bg = 'bg-slate-800/60 text-slate-300';
-
-
-
-    if (s === 'PASS') {
-
-      bg = 'bg-green-900/60 text-green-300';
-
-    } else if (s === 'FAIL' || s === 'PERMERROR') {
-
-      bg = 'bg-red-900/60 text-red-300';
-
-    } else if (s === 'SOFTFAIL' || s === 'TEMPERROR') {
-
-      bg = 'bg-amber-900/60 text-amber-300';
-
-    } else if (s === 'NONE' || s === 'NEUTRAL' || s === 'UNKNOWN') {
-
-      bg = 'bg-slate-800/60 text-slate-300';
-
-    }
-
-
-
-    return (
-
-      <span className={`px-2 py-0.5 text-xs font-semibold rounded ${bg}`}>
-
-        {displayValue(status)}
-
-      </span>
-
-    );
-
-  };
-
-
-
-  const getSpoofingBadge = (status: string | null | undefined) => {
-
-    const s = status?.toUpperCase() || 'UNKNOWN';
-
-    let bg = 'bg-slate-800/60 text-slate-300';
-
-
-
-    if (s === 'LOW') {
-
-      bg = 'bg-green-900/60 text-green-300';
-
-    } else if (s === 'MEDIUM') {
-
-      bg = 'bg-amber-900/60 text-amber-300';
-
-    } else if (s === 'HIGH') {
-
-      bg = 'bg-red-900/60 text-red-300';
-
-    }
-
-
-
-    return (
-
-      <span className={`px-2 py-0.5 text-xs font-semibold rounded ${bg}`}>
-
-        {displayValue(status)}
-
-      </span>
-
-    );
-
-  };
-
-
+  const recentCases = [...history]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5);
 
   return (
+    <div className="min-h-full">
+      <div className="mx-auto max-w-7xl px-6 py-8 lg:px-8">
+        {/* Page heading */}
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="mb-2 text-sm font-medium text-indigo-600">Investigation workspace</p>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Dashboard</h1>
+            <p className="mt-1 text-sm text-slate-500">Monitor email investigations and threat activity.</p>
+          </div>
 
-    <div className="min-h-screen bg-slate-900 text-slate-100 p-8 font-sans">
-
-      <header className="max-w-6xl mx-auto mb-8 border-b border-slate-800 pb-4 flex justify-between items-center">
-
-        <div>
-
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-
-            <ShieldAlert className="text-blue-500" /> Email Forensic Analyzer
-
-          </h1>
-
-          <p className="text-sm text-slate-400">Spring Boot + Next.js Engine Verification</p>
-
+          <button
+            type="button"
+            onClick={loadCases}
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
         </div>
 
-        <button onClick={fetchHistory} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300">
+        {/* Error */}
+        {error && (
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+            <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+            <div>
+              <p className="text-sm font-semibold text-red-800">Unable to load dashboard</p>
+              <p className="mt-1 text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        )}
 
-          <RefreshCw className="w-4 h-4" />
+        {/* Stats */}
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Total Cases" value={totalCases} icon={FileText} description="All analyzed emails" />
+          <StatCard label="High Risk" value={highRiskCases} icon={ShieldAlert} description="Requires investigation" iconClassName="text-red-500" />
+          <StatCard label="Medium Risk" value={mediumRiskCases} icon={AlertTriangle} description="Needs attention" iconClassName="text-amber-500" />
+          <StatCard label="Low Risk" value={lowRiskCases} icon={ShieldCheck} description="No major indicators" iconClassName="text-emerald-500" />
+        </div>
 
-        </button>
+        {/* Main content */}
+        <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+          {/* Analyze */}
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50">
+                  <FileSearch className="h-5 w-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-slate-900">Analyze an Email</h2>
+                  <p className="text-xs text-slate-500">Upload an EML file for forensic analysis</p>
+                </div>
+              </div>
+            </div>
 
-      </header>
-
-
-
-      <main className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-        <div className="space-y-6">
-
-          <section className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-
-              <Upload className="w-5 h-5 text-blue-400" /> Upload .EML File
-
-            </h2>
-
-            <form onSubmit={handleUpload} className="space-y-4">
-
-              <input
-
-                type="file"
-
-                accept=".eml"
-
-                ref={fileInputRef}
-
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-
-                className="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
-
-              />
-
-              <button
-
-                type="submit"
-
-                disabled={!file || loading}
-
-                className="w-full py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 rounded-lg font-medium transition"
-
+            <div className="p-6">
+              <label
+                htmlFor="email-upload"
+                className={`group flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 text-center transition ${
+                  selectedFile ? 'border-indigo-300 bg-indigo-50/50' : 'border-slate-200 bg-slate-50 hover:border-indigo-300 hover:bg-indigo-50/30'
+                }`}
               >
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-200">
+                  <Upload className="h-5 w-5 text-indigo-600" />
+                </div>
 
-                {loading ? 'Analyzing EML...' : 'Analyze Case'}
+                {selectedFile ? (
+                  <>
+                    <p className="max-w-full truncate text-sm font-semibold text-slate-800">{selectedFile.name}</p>
+                    <p className="mt-1 text-xs text-slate-500">{(selectedFile.size / 1024).toFixed(1)} KB</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold text-slate-700">Choose an EML file</p>
+                    <p className="mt-1 text-xs text-slate-500">Email files only • .eml format</p>
+                  </>
+                )}
 
-              </button>
+                <input
+                  ref={fileInputRef}
+                  id="email-upload"
+                  type="file"
+                  accept=".eml,message/rfc822"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+              </label>
 
-            </form>
-
-            {error && <p className="text-red-400 text-xs mt-3">{error}</p>}
-
-          </section>
-
-
-
-          <section className="bg-slate-800 p-6 rounded-xl border border-slate-700 max-h-96 overflow-y-auto">
-
-            <h2 className="text-lg font-semibold mb-3">Case History ({history.length})</h2>
-
-            <div className="space-y-2">
-
-              {history.map((c) => (
-
-                <div
-
-                  key={c.id}
-
-                  onClick={() => setCurrentCase(c)}
-
-                  className={`p-3 rounded-lg border text-sm cursor-pointer transition ${
-
-                    currentCase?.id === c.id ? 'bg-slate-700 border-blue-500' : 'bg-slate-900 border-slate-800 hover:border-slate-700'
-
-                  }`}
-
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={handleAnalyze}
+                  disabled={!selectedFile || uploading}
+                  className="flex-1 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
-
-                  <p className="font-medium truncate">{c.header?.subject || c.fileName || 'No Subject'}</p>
-
-                  <div className="flex justify-between items-center text-xs text-slate-400 mt-1">
-
-                    <span>ID: #{c.id}</span>
-
-                    <span>{c.createdAt ? new Date(c.createdAt).toLocaleDateString() : ''}</span>
-
-                  </div>
-
-                </div>
-
-              ))}
-
+                  {uploading ? 'Analyzing email...' : 'Analyze Email'}
+                </button>
+                <Link
+                  href="/analyze"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Advanced Analysis
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
             </div>
-
           </section>
 
-        </div>
-
-
-
-        <div className="lg:col-span-2">
-
-          {currentCase ? (
-
-            <div className="space-y-6">
-
-              <section className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-
-                <div className="flex justify-between items-start border-b border-slate-700 pb-4 mb-4">
-
-                  <div>
-
-                    <span className="text-xs font-mono bg-blue-900/50 text-blue-300 px-2 py-1 rounded">
-
-                      Case #{currentCase.id}
-
-                    </span>
-
-                    <h2 className="text-xl font-bold mt-2">{currentCase.header?.subject || 'No Subject Defined'}</h2>
-
-                  </div>
-
-                  <div className="text-right">
-
-                    <span className="text-xs text-slate-400 block">Risk Level</span>
-
-                    <span className="text-sm font-semibold text-amber-400">{currentCase.riskLevel || 'ANALYZED'}</span>
-
-                  </div>
-
-                </div>
-
-
-
-                <div className="grid grid-cols-2 gap-4 text-sm">
-
-                  <div>
-
-                    <p className="text-slate-400 text-xs">From</p>
-
-                    <p className="font-mono text-slate-200 truncate">{displayValue(currentCase.header?.senderFrom)}</p>
-
-                  </div>
-
-                  <div>
-
-                    <p className="text-slate-400 text-xs">To</p>
-
-                    <p className="font-mono text-slate-200 truncate">{displayValue(currentCase.header?.to)}</p>
-
-                  </div>
-
-                  <div>
-
-                    <p className="text-slate-400 text-xs">CC</p>
-
-                    <p className="font-mono text-slate-200 truncate">{displayValue(currentCase.header?.cc)}</p>
-
-                  </div>
-
-                  <div>
-
-                    <p className="text-slate-400 text-xs">Reply-To</p>
-
-                    <p className="font-mono text-slate-200 truncate">{displayValue(currentCase.header?.replyTo)}</p>
-
-                  </div>
-
-                  <div className="col-span-2">
-
-                    <p className="text-slate-400 text-xs">SHA-256 Hash</p>
-
-                    <p className="font-mono text-xs text-slate-300 break-all bg-slate-900 p-2 rounded mt-1">
-
-                      {displayValue(currentCase.fileHash)}
-
-                    </p>
-
-                  </div>
-
-                  <div>
-
-                    <p className="text-slate-400 text-xs">File name</p>
-
-                    <p className="font-mono text-slate-200 break-all">{displayValue(currentCase.fileName)}</p>
-
-                  </div>
-
-                  <div>
-
-                    <p className="text-slate-400 text-xs">Analysis status</p>
-
-                    <p className="text-slate-200">{displayValue(currentCase.analysisStatus)}</p>
-
-                  </div>
-
-                  <div>
-
-                    <p className="text-slate-400 text-xs">Threat score</p>
-
-                    <p className="text-slate-200">{displayValue(currentCase.threatScore)}</p>
-
-                  </div>
-
-                  <div>
-
-                    <p className="text-slate-400 text-xs">Date</p>
-
-                    <p className="font-mono text-slate-200 break-all">{displayValue(currentCase.header?.date)}</p>
-
-                  </div>
-
-                  <div className="col-span-2">
-
-                    <p className="text-slate-400 text-xs">Message-ID</p>
-
-                    <p className="font-mono text-xs text-slate-300 break-all">{displayValue(currentCase.header?.messageId)}</p>
-
-                  </div>
-
-                  <div className="col-span-2">
-
-                    <p className="text-slate-400 text-xs">Return-Path</p>
-
-                    <p className="font-mono text-xs text-slate-300 break-all">{displayValue(currentCase.header?.returnPath)}</p>
-
-                  </div>
-
-                </div>
-
-              </section>
-
-
-
-              <section className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-
-                <h3 className="text-md font-semibold mb-4">Email Route</h3>
-
-                {/* Sender IP Intelligence block */}
-
-                <div className="mb-5 p-4 rounded-lg border border-slate-700 bg-slate-900/60">
-
-                  <p className="text-slate-300 text-xs font-semibold uppercase tracking-wide mb-3">Sender IP Intelligence</p>
-
-                  {currentCase.senderIp ? (
-
-                    <div className="space-y-1">
-
-                      <p className="font-mono text-slate-100 break-all">{currentCase.senderIp}</p>
-
-                      <div className="flex flex-wrap gap-2 mt-1">
-
-                        <span className={`px-2 py-0.5 text-xs font-semibold rounded ${
-
-                          currentCase.senderIpConfidence === 'CONFIRMED' ? 'bg-green-900/60 text-green-300' :
-
-                          currentCase.senderIpConfidence === 'LIKELY' ? 'bg-amber-900/60 text-amber-300' :
-
-                          'bg-slate-700/60 text-slate-400'
-
-                        }`}>{currentCase.senderIpConfidence}</span>
-
-                        <span className="text-xs text-slate-500">Source: {displayValue(currentCase.senderIpSource)}</span>
-
-                      </div>
-
-                      <p className="text-xs text-slate-600 mt-2">
-
-                        ⚠ Explicit client-origin headers are unauthenticated and may be forged by a malicious sender.
-
-                      </p>
-
-                    </div>
-
-                  ) : (
-
-                    <div>
-
-                      <p className="text-xs font-semibold text-slate-400">NOT EXPOSED</p>
-
-                      <p className="text-xs text-slate-500 mt-1">Sender device IP was not exposed by the message headers. This is common for Gmail, Outlook, and other major webmail providers which deliberately omit client IP addresses.</p>
-
-                    </div>
-
-                  )}
-
-                </div>
-
-
-
-                {/* Connecting IP */}
-                {currentCase.connectingIp && (
-                  <div className="mb-4 p-3 rounded-lg border border-slate-700 bg-slate-900/40">
-                    <p className="text-slate-400 text-xs font-semibold uppercase tracking-wide mb-1">Connecting IP</p>
-                    <p className="font-mono text-slate-200 break-all">{currentCase.connectingIp}</p>
-                    <div className="flex gap-2 mt-1">
-                      <span className="text-xs text-slate-500">Source: {displayValue(currentCase.connectingIpSource)}</span>
-                    </div>
-                    <p className="text-xs text-slate-600 mt-1">SMTP connecting IP observed by the receiving MTA.</p>
-                  </div>
-                )}
-
-                {/* Earliest Public Mail Server (originatingIp) */}
-
-                {currentCase.originatingIp && (
-
-                  <div className="mb-4 p-3 rounded-lg border border-slate-700 bg-slate-900/40">
-
-                    <p className="text-slate-400 text-xs font-semibold uppercase tracking-wide mb-1">
-
-                      {currentCase.senderIp || currentCase.connectingIp ? 'Originating IP (Received chain)' : 'Earliest Public Mail Server'}
-
-                    </p>
-
-                    <p className="font-mono text-slate-200 break-all">{currentCase.originatingIp}</p>
-
-                    {!currentCase.senderIp && !currentCase.connectingIp && (
-
-                      <p className="text-xs text-slate-600 mt-1">This is the earliest public IP visible in the Received chain and may be a mail relay or infrastructure server, not the sender&apos;s device.</p>
-
-                    )}
-
-                  </div>
-
-                )}
-
-
-
-                <div className="space-y-2">
-
-                  {receivedHeaders.length > 0 ? receivedHeaders.map((received, index) => (
-
-                    <div key={`${received.rawValue ?? 'received'}-${index}`} className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-xs">
-
-                      <p className="text-slate-400 mb-1">Hop {index + 1}</p>
-
-                      <p><span className="text-slate-400">From:</span> {displayValue(received.fromHost)} / {displayValue(received.fromIp)}</p>
-
-                      <p><span className="text-slate-400">By:</span> {displayValue(received.byHost)} / {displayValue(received.byIp)}</p>
-
-                      <p><span className="text-slate-400">Time:</span> {displayTimestamp(received.timestamp)}</p>
-
-                    </div>
-
-                  )) : <p className="text-xs text-slate-500">—</p>}
-
-                </div>
-
-              </section>
-
-
-
-              <section className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-
-                <h3 className="text-md font-semibold mb-4 flex items-center gap-2">
-
-                  <Globe className="w-4 h-4 text-cyan-400" />
-
-                  {currentCase.senderIp
-
-                    ? 'Sender Network Location (Approximate)'
-
-                    : (currentCase.connectingIp || currentCase.originatingIp)
-
-                      ? 'Mail Server Infrastructure Location (Approximate)'
-
-                      : 'Approximate IP Location'}
-
-                </h3>
-
-                {currentCase.geoCountry || currentCase.geoCity || currentCase.geoLatitude != null ? (
-
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-
-
-                    <div>
-
-                      <p className="text-slate-400 text-xs">Country</p>
-
-                      <p className="font-mono text-slate-200">{displayValue(currentCase.geoCountry)}</p>
-
-                    </div>
-
-                    <div>
-
-                      <p className="text-slate-400 text-xs">City</p>
-
-                      <p className="font-mono text-slate-200">{displayValue(currentCase.geoCity)}</p>
-
-                    </div>
-
-                    <div>
-
-                      <p className="text-slate-400 text-xs">Coordinates</p>
-
-                      <p className="font-mono text-slate-200">
-
-                        {currentCase.geoLatitude != null && currentCase.geoLongitude != null
-
-                          ? `${currentCase.geoLatitude.toFixed(4)}, ${currentCase.geoLongitude.toFixed(4)}`
-
-                          : '—'}
-
-                      </p>
-
-                    </div>
-
-                    <div>
-
-                      <p className="text-slate-400 text-xs">Timezone</p>
-
-                      <p className="font-mono text-slate-200">{displayValue(currentCase.geoTimezone)}</p>
-
-                    </div>
-
-                  </div>
-
-                ) : (
-
-                  <p className="text-xs text-slate-500">Unknown — MaxMind database not configured or no record for this IP.</p>
-
-                )}
-
-                <p className="text-xs text-slate-600 mt-3">
-
-                  {currentCase.senderIp
-
-                    ? 'Approximate IP geolocation of the sender network. Does not identify the exact physical location of an individual.'
-
-                    : 'Approximate geolocation of mail server infrastructure. Does not represent the sender\'s physical location.'}
-
-                </p>
-
-              </section>
-
-
-
-              <section className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-
-                <h3 className="text-md font-semibold mb-4 flex items-center gap-2">
-
-                  <CheckCircle className="w-4 h-4 text-green-400" /> Authentication Checks
-
-                </h3>
-
-                <div className="grid grid-cols-3 gap-4 text-center">
-
-                  <div className="bg-slate-900 p-3 rounded-lg border border-slate-800">
-
-                    <p className="text-xs text-slate-400 mb-1">SPF</p>
-
-                    {getStatusBadge(currentCase.header?.spfStatus)}
-
-                  </div>
-
-                  <div className="bg-slate-900 p-3 rounded-lg border border-slate-800">
-
-                    <p className="text-xs text-slate-400 mb-1">DKIM</p>
-
-                    {getStatusBadge(currentCase.header?.dkimStatus)}
-
-                  </div>
-
-                  <div className="bg-slate-900 p-3 rounded-lg border border-slate-800">
-
-                    <p className="text-xs text-slate-400 mb-1">DMARC</p>
-
-                    {getStatusBadge(currentCase.header?.dmarcStatus)}
-
-                  </div>
-
-                </div>
-
-              </section>
-
-
-
-              <section className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-
-                <div className="flex justify-between items-start mb-4">
-
-                  <h3 className="text-md font-semibold flex items-center gap-2">
-
-                    <ShieldAlert className="w-4 h-4 text-rose-400" /> Sender Identity
-
-                  </h3>
-
-                  <div className="text-right">
-
-                    <span className="text-xs text-slate-400 block mb-1">Spoofing Risk</span>
-
-                    {getSpoofingBadge(currentCase.spoofingRisk)}
-
-                  </div>
-
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4">
-
-                  <div className="bg-slate-900 p-3 rounded-lg border border-slate-800">
-
-                    <p className="text-xs text-slate-400 mb-1">From</p>
-
-                    <p className="font-mono text-slate-300 truncate">{displayValue(currentCase.header?.senderFrom)}</p>
-
-                  </div>
-
-                  <div className="bg-slate-900 p-3 rounded-lg border border-slate-800">
-
-                    <p className="text-xs text-slate-400 mb-1">Reply-To</p>
-
-                    <p className="font-mono text-slate-300 truncate">{displayValue(currentCase.header?.replyTo)}</p>
-
-                  </div>
-
-                  <div className="bg-slate-900 p-3 rounded-lg border border-slate-800">
-
-                    <p className="text-xs text-slate-400 mb-1">Return-Path</p>
-
-                    <p className="font-mono text-slate-300 truncate">{displayValue(currentCase.header?.returnPath)}</p>
-
-                  </div>
-
-                </div>
-
-                {spoofingFindings.length > 0 && (
-
-                  <div>
-
-                    <p className="text-xs text-slate-400 mb-2">Findings:</p>
-
-                    <ul className="list-disc pl-5 text-sm text-slate-300 space-y-1">
-
-                      {spoofingFindings.map((finding, idx) => (
-
-                        <li key={idx}>
-
-                          {finding === 'FROM_REPLY_TO_MISMATCH' ? 'From / Reply-To domain mismatch' :
-
-                           finding === 'FROM_RETURN_PATH_MISMATCH' ? 'From / Return-Path domain mismatch' : finding}
-
-                        </li>
-
-                      ))}
-
-                    </ul>
-
-                  </div>
-
-                )}
-
-              </section>
-
-
-
-              <section className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-
-                <h3 className="text-md font-semibold mb-4">URL / IOC ({urlIndicators.length})</h3>
-
-                {urlIndicators.length > 0 ? (
-
-                  <div className="space-y-2">
-
-                    {urlIndicators.map((indicator, index) => (
-
-                      <div key={`${indicator.value ?? 'url'}-${index}`} className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-xs font-mono break-all">
-
-                        <span className="text-slate-300">{displayValue(indicator.value)}</span>
-
-                        {isIpBasedUrl(indicator.value) && <span className="ml-2 text-amber-300">IP host</span>}
-
-                        <div className="mt-2 font-sans text-slate-400">
-
-                          VirusTotal: <span className={virusTotalStatusClass(indicator.virusTotalStatus)}>{displayValue(indicator.virusTotalStatus)}</span>
-
-                          <span className="ml-3">Malicious: {displayValue(indicator.virusTotalMalicious)}</span>
-
-                          <span className="ml-3">Suspicious: {displayValue(indicator.virusTotalSuspicious)}</span>
-
-                          <span className="ml-3">Harmless: {displayValue(indicator.virusTotalHarmless)}</span>
-
-                          <span className="ml-3">Undetected: {displayValue(indicator.virusTotalUndetected)}</span>
-
-                        </div>
-
-                      </div>
-
-                    ))}
-
-                  </div>
-
-                ) : (
-
-                  <p className="text-xs text-slate-500">—</p>
-
-                )}
-
-              </section>
-
-
-
-              <section className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-
-                <h3 className="text-md font-semibold mb-4 flex items-center gap-2">
-
-                  <Globe className="w-4 h-4 text-purple-400" /> Indicators of Compromise (IoCs)
-
-                </h3>
-
-                <div className="space-y-2">
-
-                  {currentCase.indicators && currentCase.indicators.length > 0 ? (
-
-                    currentCase.indicators.map((ind, idx) => (
-
-                      <div key={idx} className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-xs font-mono">
-
-                        <div className="flex items-center justify-between">
-
-                          <span className={`px-2 py-0.5 rounded font-bold ${ind.type === 'IP' ? 'bg-purple-900/50 text-purple-300' : 'bg-amber-900/50 text-amber-300'}`}>
-
-                            {ind.type}
-
-                          </span>
-
-                          <span className="text-slate-300 break-all">{displayValue(ind.value)}{ind.details ? ` (${ind.details})` : ''}</span>
-
-                        </div>
-
-                        {ind.type === 'IP' && (
-
-                          <div className="mt-2 font-sans text-slate-400 space-y-0.5">
-
-                            <div>
-
-                              AbuseIPDB: <span className={abuseIpDbStatusClass(ind.abuseIpDbStatus)}>{displayValue(ind.abuseIpDbStatus)}</span>
-
-                              {ind.abuseConfidenceScore != null && (
-
-                                <span className="ml-3">Confidence: {ind.abuseConfidenceScore}%</span>
-
-                              )}
-
-                              {ind.totalReports != null && (
-
-                                <span className="ml-3">Reports: {ind.totalReports}</span>
-
-                              )}
-
-                            </div>
-
-                            {ind.lastReportedAt && (
-
-                              <div>Last reported: <span className="text-slate-300">{ind.lastReportedAt}</span></div>
-
-                            )}
-
-                            {(ind.asnNumber || ind.asnOrg) && (
-
-                              <div className="mt-1 pt-1 border-t border-slate-800">
-
-                                <span className="text-slate-500">Network: </span>
-
-                                {ind.asnNumber && (
-
-                                  <span className="text-slate-300 font-mono">{ind.asnNumber}</span>
-
-                                )}
-
-                                {ind.asnOrg && (
-
-                                  <span className="text-slate-400 ml-2">{ind.asnOrg}</span>
-
-                                )}
-
-                              </div>
-
-                            )}
-
-                          </div>
-
-                        )}
-
-                      </div>
-
-                    ))
-
-                  ) : (
-
-                    <p className="text-xs text-slate-500">—</p>
-
-                  )}
-
-                </div>
-
-              </section>
-
+          {/* Recent cases */}
+          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+              <div>
+                <h2 className="font-semibold text-slate-900">Recent Cases</h2>
+                <p className="mt-0.5 text-xs text-slate-500">Latest forensic investigations</p>
+              </div>
+              <Link href="/cases" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700">View all</Link>
             </div>
 
-          ) : (
-
-            <div className="bg-slate-800 border border-slate-700 rounded-xl p-12 text-center text-slate-400">
-
-              <FileText className="w-12 h-12 mx-auto mb-3 text-slate-600" />
-
-              <p>Upload a file or click on a case from history to display forensic output.</p>
-
+            <div className="divide-y divide-slate-100">
+              {loading ? (
+                <div className="space-y-3 p-6">
+                  {[1, 2, 3].map((item) => (
+                    <div key={item} className="h-14 animate-pulse rounded-lg bg-slate-100" />
+                  ))}
+                </div>
+              ) : recentCases.length > 0 ? (
+                recentCases.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={`/cases/${item.id}`}
+                    className="flex items-center gap-3 px-6 py-4 transition hover:bg-slate-50"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100">
+                      <FileText className="h-4 w-4 text-slate-500" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-800">
+                        {item.header?.subject || item.fileName || 'No subject'}
+                      </p>
+                      <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400">
+                        <span>Case #{item.id}</span>
+                        <span>•</span>
+                        <span>{formatDate(item.createdAt)}</span>
+                      </div>
+                    </div>
+                    <RiskBadge score={item.threatScore} className="hidden sm:inline-flex" />
+                  </Link>
+                ))
+              ) : (
+                <div className="p-6">
+                  <EmptyState
+                    icon={FileText}
+                    title="No cases yet"
+                    description="Upload an EML file to start an investigation."
+                  />
+                </div>
+              )}
             </div>
-
-          )}
-
+          </section>
         </div>
 
-      </main>
-
+        {/* Investigation overview */}
+        <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-6 py-5">
+            <h2 className="font-semibold text-slate-900">Investigation Overview</h2>
+            <p className="mt-0.5 text-xs text-slate-500">Current distribution of analyzed cases</p>
+          </div>
+          <div className="grid gap-6 p-6 md:grid-cols-3">
+            <RiskOverview label="High Risk" value={highRiskCases} total={totalCases} icon={ShieldAlert} className="text-red-500" barClassName="bg-red-500" />
+            <RiskOverview label="Medium Risk" value={mediumRiskCases} total={totalCases} icon={AlertTriangle} className="text-amber-500" barClassName="bg-amber-500" />
+            <RiskOverview label="Low Risk" value={lowRiskCases} total={totalCases} icon={CheckCircle2} className="text-emerald-500" barClassName="bg-emerald-500" />
+          </div>
+        </section>
+      </div>
     </div>
-
   );
-
 }
