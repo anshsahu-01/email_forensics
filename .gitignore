@@ -2,7 +2,11 @@
 # OS / editor files
 # -----------------------------------------------------------------------------
 .DS_Store
+.DS_Store?
+._*
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 .idea/
 .vscode/
 *.swp
@@ -12,6 +16,8 @@ Thumbs.db
 # -----------------------------------------------------------------------------
 # Java / Spring Boot
 # -----------------------------------------------------------------------------
+target/
+**/target/
 backend/target/
 backend/.classpath
 backend/.project
@@ -57,11 +63,37 @@ pnpm-debug.log*
 # -----------------------------------------------------------------------------
 # Python / AI service
 # -----------------------------------------------------------------------------
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
 ai-service/__pycache__/
 ai-service/.venv/
 ai-service/venv/
 ai-service/.pytest_cache/
 ai-service/*.pyc
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# -----------------------------------------------------------------------------
+# Vector Store / AI Models / Local Cache
+# -----------------------------------------------------------------------------
+# ChromaDB persistence directories
+chroma_db/
+**/chroma_db/
+.chroma/
+
+# Ollama & model caching directories
+.ollama/
+models/
 
 # -----------------------------------------------------------------------------
 # Database / local data
