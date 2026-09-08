@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   BarChart3,
+  Brain,
   FileSearch,
   FolderOpen,
   LayoutDashboard,
@@ -32,6 +33,11 @@ const navigation = [
     name: 'Intelligence',
     href: '/intelligence',
     icon: BarChart3,
+  },
+  {
+    name: 'AI Investigation',
+    href: '/ai-test',
+    icon: Brain,
   },
   {
     name: 'Reports',
