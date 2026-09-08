@@ -1,3 +1,10 @@
+declare global {
+  interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    google: any;
+  }
+}
+
 export interface EmailHeader {
   id?: number;
   subject: string | null;
@@ -43,6 +50,14 @@ export interface EmailCase {
   analysisStatus: string;
   threatScore: number | null;
   originatingIp: string | null;
+  senderIp: string | null;
+  connectingIp: string | null;
+  spoofingRisk: string | null;
+  geoCountry: string | null;
+  geoCity: string | null;
+  geoLatitude: number | null;
+  geoLongitude: number | null;
+  geoTimezone: string | null;
   receivedHeaders: ReceivedHeader[] | null;
   rawBody: string | null;
   createdAt: string;

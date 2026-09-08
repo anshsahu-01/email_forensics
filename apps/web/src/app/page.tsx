@@ -21,7 +21,8 @@ import StatCard from '@/components/common/StatCard';
 import RiskBadge, { getRiskLevel } from '@/components/common/RiskBadge';
 import EmptyState from '@/components/common/EmptyState';
 import RiskOverview from '@/components/dashboard/RiskOverview';
-
+import { TopSuspiciousLocations, AuthenticationOverview } from '@/components/dashboard/DashboardCharts';
+import GoogleMap from '@/components/common/GoogleMap';
 function formatDate(value: string | null) {
   if (!value) return '—';
   const date = new Date(value);
@@ -101,6 +102,14 @@ export default function DashboardPage() {
   const mediumRiskCases = history.filter(item => getRiskLevel(item.threatScore) === 'MEDIUM').length;
   const lowRiskCases = history.filter(item => getRiskLevel(item.threatScore) === 'LOW').length;
 
+  const mapPoints = history
+    .filter(c => c.geoLatitude != null && c.geoLongitude != null)
+    .map(c => ({
+      lat: c.geoLatitude!,
+      lng: c.geoLongitude!,
+      label: c.geoCity ? `${c.geoCity}, ${c.geoCountry}` : (c.geoCountry || 'Unknown Infrastructure Location'),
+      detail: c.header?.subject || `ID-${c.id}`
+    }));
   const recentCases = [...history]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5);
@@ -147,6 +156,44 @@ export default function DashboardPage() {
         </div>
 
         {/* Main content */}
+
+        {/* Investigation overview */}
+        <section className="mt-12 border border-slate-200 bg-white">
+          <div className="border-b border-slate-200 px-8 py-6 bg-slate-50">
+            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Risk Distribution</h2>
+            <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Workspace threat intelligence metrics</p>
+          </div>
+          <div className="grid gap-12 p-8 md:grid-cols-3">
+            <RiskOverview label="High Risk / Critical" value={highRiskCases} total={totalCases} icon={ShieldAlert} className="text-red-600" barClassName="bg-red-600" />
+            <RiskOverview label="Suspicious / Warning" value={mediumRiskCases} total={totalCases} icon={AlertTriangle} className="text-amber-600" barClassName="bg-amber-600" />
+            <RiskOverview label="Verified / Harmless" value={lowRiskCases} total={totalCases} icon={CheckCircle2} className="text-emerald-600" barClassName="bg-emerald-600" />
+          </div>
+        </section>
+
+        {/* Intelligence Visualizations */}
+        <div className="mt-12 grid gap-12 xl:grid-cols-2">
+          {/* Top Suspicious Locations */}
+          <section className="border border-slate-200 bg-white">
+            <div className="border-b border-slate-200 px-8 py-6 bg-slate-50">
+              <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Top Suspicious Locations</h2>
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Locations associated with high-risk cases</p>
+            </div>
+            <div className="p-8">
+              <TopSuspiciousLocations history={history} />
+            </div>
+          </section>
+
+          {/* Authentication Overview */}
+          <section className="border border-slate-200 bg-white">
+            <div className="border-b border-slate-200 px-8 py-6 bg-slate-50">
+              <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Authentication Overview</h2>
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Aggregated SPF, DKIM, and DMARC statuses</p>
+            </div>
+            <div className="p-8">
+              <AuthenticationOverview history={history} />
+            </div>
+          </section>
+        </div>
         <div className="mt-12 grid gap-12 xl:grid-cols-[1.2fr_0.8fr]">
           {/* Analyze */}
           <section className="border border-slate-200 bg-white">
@@ -161,9 +208,8 @@ export default function DashboardPage() {
             <div className="p-8">
               <label
                 htmlFor="email-upload"
-                className={`group flex min-h-[300px] cursor-pointer flex-col items-center justify-center border-2 border-dashed transition-all ${
-                  selectedFile ? 'border-indigo-600 bg-indigo-50/20' : 'border-slate-200 bg-slate-50 hover:border-slate-400 hover:bg-white'
-                }`}
+                className={`group flex min-h-[300px] cursor-pointer flex-col items-center justify-center border-2 border-dashed transition-all ${selectedFile ? 'border-indigo-600 bg-indigo-50/20' : 'border-slate-200 bg-slate-50 hover:border-slate-400 hover:bg-white'
+                  }`}
               >
                 <div className="mb-6 flex h-16 w-16 items-center justify-center border-2 border-slate-200 bg-white transition-all group-hover:border-slate-900">
                   <Upload className="h-6 w-6 text-slate-900" />
@@ -264,16 +310,14 @@ export default function DashboardPage() {
           </section>
         </div>
 
-        {/* Investigation overview */}
+        {/* Dashboard Map */}
         <section className="mt-12 border border-slate-200 bg-white">
           <div className="border-b border-slate-200 px-8 py-6 bg-slate-50">
-            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Risk Distribution</h2>
-            <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Workspace threat intelligence metrics</p>
+            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Geographic Intelligence</h2>
+            <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Network Infrastructure Locations</p>
           </div>
-          <div className="grid gap-12 p-8 md:grid-cols-3">
-            <RiskOverview label="High Risk / Critical" value={highRiskCases} total={totalCases} icon={ShieldAlert} className="text-red-600" barClassName="bg-red-600" />
-            <RiskOverview label="Suspicious / Warning" value={mediumRiskCases} total={totalCases} icon={AlertTriangle} className="text-amber-600" barClassName="bg-amber-600" />
-            <RiskOverview label="Verified / Harmless" value={lowRiskCases} total={totalCases} icon={CheckCircle2} className="text-emerald-600" barClassName="bg-emerald-600" />
+          <div className="p-8">
+            <GoogleMap points={mapPoints} />
           </div>
         </section>
       </div>

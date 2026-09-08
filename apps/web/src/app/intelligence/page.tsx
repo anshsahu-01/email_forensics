@@ -16,6 +16,8 @@ import {
 import { fetchCases } from '@/lib/api';
 import { EmailCase } from '@/types';
 import EmptyState from '@/components/common/EmptyState';
+import GoogleMap from '@/components/common/GoogleMap';
+import { RiskDistributionChart, IndicatorDistributionChart } from '@/components/intelligence/IntelligenceCharts';
 
 export default function IntelligencePage() {
   const [cases, setCases] = useState<EmailCase[]>([]);
@@ -63,6 +65,14 @@ export default function IntelligencePage() {
 
   const maliciousCount = uniqueIndicators.filter(i => (i.vtMalicious ?? 0) > 0).length;
 
+  const mapPoints = cases
+    .filter(c => c.geoLatitude != null && c.geoLongitude != null)
+    .map(c => ({
+      lat: c.geoLatitude!,
+      lng: c.geoLongitude!,
+      label: c.geoCity ? `${c.geoCity}, ${c.geoCountry}` : (c.geoCountry || 'Unknown Infrastructure Location'),
+      detail: c.header?.subject || `ID-${c.id}`
+    }));
   return (
     <div className="min-h-full bg-white py-12">
       <div className="mx-auto max-w-7xl px-8">
@@ -87,12 +97,47 @@ export default function IntelligencePage() {
           </button>
         </div>
 
-        {/* Intelligence Stats */}
         <div className="grid gap-px bg-slate-200 border border-slate-200 mb-12 sm:grid-cols-3">
           <IntelligenceStat label="Unique Artifacts" value={uniqueIndicators.length} color="text-slate-900" />
           <IntelligenceStat label="Confirmed Malicious" value={maliciousCount} color="text-red-600" />
           <IntelligenceStat label="Monitored Endpoints" value={uniqueIndicators.filter(i => i.type === 'URL').length} color="text-slate-900" />
         </div>
+
+        {/* Intelligence Visualizations */}
+        <div className="mb-12 grid gap-12 xl:grid-cols-2">
+          {/* Risk Distribution */}
+          <section className="border border-slate-200 bg-white">
+            <div className="border-b border-slate-200 px-8 py-6 bg-slate-50">
+              <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Threat Intelligence</h2>
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Risk Distribution Overview</p>
+            </div>
+            <div className="p-8">
+              <RiskDistributionChart cases={cases} />
+            </div>
+          </section>
+
+          {/* Indicator Distribution */}
+          <section className="border border-slate-200 bg-white">
+            <div className="border-b border-slate-200 px-8 py-6 bg-slate-50">
+              <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Indicator Typology</h2>
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Global Indicator Distribution</p>
+            </div>
+            <div className="p-8">
+              <IndicatorDistributionChart indicators={allIndicators} />
+            </div>
+          </section>
+        </div>
+
+        {/* Geographic Intelligence Map */}
+        <section className="mb-12 border border-slate-200 bg-white">
+          <div className="border-b border-slate-200 px-8 py-6 bg-slate-50">
+            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Global Infrastructure Map</h2>
+            <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Geographic footprint of analyzed artifacts</p>
+          </div>
+          <div className="p-8">
+            <GoogleMap points={mapPoints} />
+          </div>
+        </section>
 
         <div className="mb-10 flex flex-col gap-6 sm:flex-row sm:items-center">
           <div className="relative flex-1">
