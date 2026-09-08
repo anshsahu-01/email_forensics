@@ -7,6 +7,7 @@ interface StatCardProps {
   description?: string;
   icon: LucideIcon;
   iconClassName?: string;
+  iconBgClassName?: string;
 }
 
 export default function StatCard({
@@ -15,6 +16,7 @@ export default function StatCard({
   description,
   icon: Icon,
   iconClassName = 'text-blue-600',
+  iconBgClassName = 'bg-blue-50',
 }: StatCardProps) {
   return (
     <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white px-5 py-4 transition-all hover:border-slate-300 hover:shadow-sm">
@@ -23,7 +25,7 @@ export default function StatCard({
       <div className="flex items-center justify-between">
         
         {/* Icon */}
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50">
+        <div className={`flex h-10 w-10 items-center justify-center rounded-full ${iconBgClassName}`}>
           <Icon className={`h-5 w-5 ${iconClassName}`} />
         </div>
 
@@ -50,26 +52,6 @@ export default function StatCard({
         )}
       </div>
 
-      {/* Sparkline */}
-      <svg
-        className="absolute bottom-3 right-4 h-12 w-24"
-        viewBox="0 0 100 45"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          d="M2 38
-             C10 34, 15 27, 23 29
-             C31 31, 36 25, 43 26
-             C51 27, 55 28, 62 23
-             C69 18, 73 10, 80 15
-             C87 20, 91 5, 98 8"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          className="text-blue-300"
-        />
-      </svg>
     </div>
   );
 }

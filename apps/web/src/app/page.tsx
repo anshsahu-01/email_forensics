@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   ArrowRight,
-  CheckCircle2,
   FileSearch,
   FileText,
   RefreshCw,
@@ -14,24 +13,30 @@ import {
   ShieldCheck,
   Upload,
   XCircle,
+  Eye,
+  Mail,
+  Zap,
+  Shield,
+  ShieldHalf,
+  FileCode2,
+  FileIcon
 } from 'lucide-react';
 import { fetchCases, analyzeEmail } from '@/lib/api';
 import { EmailCase } from '@/types';
 import StatCard from '@/components/common/StatCard';
-import RiskBadge, { getRiskLevel } from '@/components/common/RiskBadge';
-import EmptyState from '@/components/common/EmptyState';
-import RiskOverview from '@/components/dashboard/RiskOverview';
+import { getRiskLevel } from '@/components/common/RiskBadge';
 import { TopSuspiciousLocations, AuthenticationOverview } from '@/components/dashboard/DashboardCharts';
 import GoogleMap from '@/components/common/GoogleMap';
+import { RiskDistributionChart } from '@/components/intelligence/IntelligenceCharts';
+
 function formatDate(value: string | null) {
   if (!value) return '—';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  
+  // Format to match screenshot: YYYY-MM-DD HH:MM
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 export default function DashboardPage() {
@@ -110,123 +115,128 @@ export default function DashboardPage() {
       label: c.geoCity ? `${c.geoCity}, ${c.geoCountry}` : (c.geoCountry || 'Unknown Infrastructure Location'),
       detail: c.header?.subject || `ID-${c.id}`
     }));
+
   const recentCases = [...history]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5);
 
   return (
-    <div className="min-h-full bg-white">
-      <div className="mx-auto max-w-7xl px-8 py-12">
-        {/* Page heading */}
-        <div className="mb-12 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between border-b border-slate-900 pb-8">
-          <div>
-            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.3em] text-indigo-600">Forensic Workspace</p>
-            <h1 className="text-4xl font-black uppercase tracking-tighter text-slate-900 sm:text-5xl">Dashboard</h1>
-            <p className="mt-4 text-sm font-medium text-slate-500 max-w-md">Real-time monitoring of email threat vectors and active forensic investigations.</p>
+    <div className="min-h-full bg-[#f8fafc] p-6 lg:p-8">
+      <div className="mx-auto max-w-[1400px]">
+        
+        {/* Banner Section */}
+        <div className="relative mb-6 flex flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50/30 p-8 shadow-sm border border-blue-100 sm:flex-row sm:items-center">
+          <div className="relative z-10">
+            <p className="mb-2 text-xs font-bold uppercase tracking-widest text-blue-600">Forensic Workspace</p>
+            <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">DASHBOARD</h1>
+            <p className="mt-2 max-w-lg text-sm text-slate-500">Real-time monitoring of email threat vectors and active forensic investigations.</p>
+          </div>
+          
+          <div className="relative z-10 mt-6 sm:mt-0">
+            <button
+              type="button"
+              onClick={loadCases}
+              disabled={loading}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-blue-600 bg-white px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-blue-600 shadow-sm transition hover:bg-blue-50 focus:outline-none disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh Data
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={loadCases}
-            disabled={loading}
-            className="inline-flex items-center justify-center gap-3 border-2 border-slate-900 bg-white px-6 py-3 text-[11px] font-black uppercase tracking-widest text-slate-900 transition hover:bg-slate-900 hover:text-white disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh Data
-          </button>
+          {/* Decorative Background Shield */}
+          <div className="absolute -right-8 top-1/2 hidden -translate-y-1/2 transform sm:block opacity-20 pointer-events-none">
+             <ShieldHalf className="h-48 w-48 text-blue-500" />
+          </div>
         </div>
 
         {/* Error */}
         {error && (
-          <div className="mb-8 flex items-start gap-4 border border-red-200 bg-red-50 p-6">
+          <div className="mb-6 flex items-start gap-4 rounded-xl border border-red-200 bg-red-50 p-5 shadow-sm">
             <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
             <div>
-              <p className="text-xs font-black uppercase tracking-widest text-red-800">System Error</p>
-              <p className="mt-1 text-sm font-medium text-red-700">{error}</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-red-800">System Error</p>
+              <p className="mt-1 text-sm text-red-700">{error}</p>
             </div>
           </div>
         )}
 
-        {/* Stats */}
-        <div className="grid gap-px bg-slate-200 sm:grid-cols-2 xl:grid-cols-4 border border-slate-200">
-          <StatCard label="Total Investigations" value={totalCases} icon={FileText} description="Total artifacts processed" />
-          <StatCard label="Critical Threats" value={highRiskCases} icon={ShieldAlert} description="Immediate action required" iconClassName="text-red-600" />
-          <StatCard label="Suspicious" value={mediumRiskCases} icon={AlertTriangle} description="Awaiting detailed review" iconClassName="text-amber-600" />
-          <StatCard label="Verified Safe" value={lowRiskCases} icon={ShieldCheck} description="No malicious indicators" iconClassName="text-emerald-600" />
+        {/* Stats Row */}
+        <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard 
+            label="Total Investigations" 
+            value={totalCases} 
+            icon={FileText} 
+            description="Total artifacts processed" 
+            iconClassName="text-blue-600"
+            iconBgClassName="bg-blue-100"
+          />
+          <StatCard 
+            label="Critical Threats" 
+            value={highRiskCases} 
+            icon={ShieldAlert} 
+            description="Immediate action required" 
+            iconClassName="text-red-600"
+            iconBgClassName="bg-red-100"
+          />
+          <StatCard 
+            label="Suspicious" 
+            value={mediumRiskCases} 
+            icon={AlertTriangle} 
+            description="Awaiting detailed review" 
+            iconClassName="text-amber-600"
+            iconBgClassName="bg-amber-100"
+          />
+          <StatCard 
+            label="Verified Safe" 
+            value={lowRiskCases} 
+            icon={ShieldCheck} 
+            description="No malicious indicators" 
+            iconClassName="text-emerald-600"
+            iconBgClassName="bg-emerald-100"
+          />
         </div>
 
-        {/* Main content */}
-
-        {/* Investigation overview */}
-        <section className="mt-12 border border-slate-200 bg-white">
-          <div className="border-b border-slate-200 px-8 py-6 bg-slate-50">
-            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Risk Distribution</h2>
-            <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Workspace threat intelligence metrics</p>
-          </div>
-          <div className="grid gap-12 p-8 md:grid-cols-3">
-            <RiskOverview label="High Risk / Critical" value={highRiskCases} total={totalCases} icon={ShieldAlert} className="text-red-600" barClassName="bg-red-600" />
-            <RiskOverview label="Suspicious / Warning" value={mediumRiskCases} total={totalCases} icon={AlertTriangle} className="text-amber-600" barClassName="bg-amber-600" />
-            <RiskOverview label="Verified / Harmless" value={lowRiskCases} total={totalCases} icon={CheckCircle2} className="text-emerald-600" barClassName="bg-emerald-600" />
-          </div>
-        </section>
-
-        {/* Intelligence Visualizations */}
-        <div className="mt-12 grid gap-12 xl:grid-cols-2">
-          {/* Top Suspicious Locations */}
-          <section className="border border-slate-200 bg-white">
-            <div className="border-b border-slate-200 px-8 py-6 bg-slate-50">
-              <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Top Suspicious Locations</h2>
-              <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Locations associated with high-risk cases</p>
-            </div>
-            <div className="p-8">
-              <TopSuspiciousLocations history={history} />
-            </div>
-          </section>
-
-          {/* Authentication Overview */}
-          <section className="border border-slate-200 bg-white">
-            <div className="border-b border-slate-200 px-8 py-6 bg-slate-50">
-              <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Authentication Overview</h2>
-              <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Aggregated SPF, DKIM, and DMARC statuses</p>
-            </div>
-            <div className="p-8">
-              <AuthenticationOverview history={history} />
-            </div>
-          </section>
-        </div>
-        <div className="mt-12 grid gap-12 xl:grid-cols-[1.2fr_0.8fr]">
-          {/* Analyze */}
-          <section className="border border-slate-200 bg-white">
-            <div className="border-b border-slate-200 px-8 py-6 flex items-center justify-between bg-slate-50">
-              <div>
-                <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">New Investigation</h2>
-                <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Intake .eml for analysis</p>
+        {/* Middle Section: New Investigation & Active Ledger */}
+        <div className="mb-6 grid gap-6 xl:grid-cols-[1fr_1.5fr]">
+          
+          {/* New Investigation */}
+          <section className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="border-b border-slate-100 px-6 py-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50">
+                   <Upload className="h-4 w-4 text-indigo-600" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-900">New Investigation</h2>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Intake .eml for analysis</p>
+                </div>
               </div>
               <FileSearch className="h-5 w-5 text-slate-300" />
             </div>
 
-            <div className="p-8">
+            <div className="p-6 flex-1 flex flex-col">
               <label
                 htmlFor="email-upload"
-                className={`group flex min-h-[300px] cursor-pointer flex-col items-center justify-center border-2 border-dashed transition-all ${selectedFile ? 'border-indigo-600 bg-indigo-50/20' : 'border-slate-200 bg-slate-50 hover:border-slate-400 hover:bg-white'
-                  }`}
+                className={`group flex flex-1 min-h-[160px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed transition-all ${
+                  selectedFile ? 'border-indigo-400 bg-indigo-50/50' : 'border-blue-200 bg-blue-50/30 hover:border-blue-400 hover:bg-blue-50'
+                }`}
               >
-                <div className="mb-6 flex h-16 w-16 items-center justify-center border-2 border-slate-200 bg-white transition-all group-hover:border-slate-900">
-                  <Upload className="h-6 w-6 text-slate-900" />
+                <div className="mb-4">
+                  <Upload className={`h-8 w-8 ${selectedFile ? 'text-indigo-600' : 'text-blue-500'}`} />
                 </div>
-
                 {selectedFile ? (
-                  <div className="text-center">
-                    <p className="max-w-xs truncate text-sm font-black uppercase tracking-tight text-slate-900">{selectedFile.name}</p>
-                    <p className="mt-2 text-[10px] font-bold text-slate-500">READY FOR PROCESSING • {(selectedFile.size / 1024).toFixed(1)} KB</p>
+                  <div className="text-center px-4">
+                    <p className="max-w-[200px] truncate text-sm font-bold text-slate-900">{selectedFile.name}</p>
+                    <p className="mt-1 text-xs text-indigo-600 font-medium">Ready for processing</p>
                   </div>
                 ) : (
                   <div className="text-center">
-                    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-900">Drop Forensic Artifact</p>
-                    <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Supported format: .eml only</p>
+                    <p className="text-sm font-bold text-slate-700">Drag & Drop Files Here</p>
+                    <p className="mt-1 text-xs text-blue-600">or click to browse</p>
+                    <p className="mt-3 text-[10px] text-slate-400">Supports .eml (max 10MB)</p>
                   </div>
                 )}
-
                 <input
                   ref={fileInputRef}
                   id="email-upload"
@@ -237,89 +247,177 @@ export default function DashboardPage() {
                 />
               </label>
 
-              <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+              {/* Action Buttons */}
+              <div className="mt-4 grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={handleAnalyze}
                   disabled={!selectedFile || uploading}
-                  className="flex-1 border-2 border-slate-900 bg-slate-900 px-6 py-4 text-[11px] font-black uppercase tracking-widest text-white transition hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-center transition hover:border-indigo-300 hover:bg-indigo-50 focus:outline-none disabled:opacity-50 disabled:pointer-events-none"
                 >
-                  {uploading ? 'Processing artifact...' : 'Initiate Deep Analysis'}
+                  <Mail className="h-4 w-4 text-blue-600" />
+                  <div>
+                     <p className="text-[10px] font-bold text-slate-700">Email Analysis</p>
+                     <p className="text-[9px] text-slate-400 hidden sm:block">Extract headers, links</p>
+                  </div>
                 </button>
-                <Link
-                  href="/analyze"
-                  className="inline-flex items-center justify-center gap-3 border-2 border-slate-200 bg-white px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-900 transition hover:border-slate-900"
+                <button
+                  type="button"
+                  disabled
+                  className="flex flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-center transition opacity-60 cursor-not-allowed"
                 >
-                  Bulk Upload
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
+                  <Zap className="h-4 w-4 text-amber-500" />
+                  <div>
+                     <p className="text-[10px] font-bold text-slate-700">Auto Triage</p>
+                     <p className="text-[9px] text-slate-400 hidden sm:block">Detect threats</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAnalyze}
+                  disabled={!selectedFile || uploading}
+                  className="flex flex-col items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-center transition hover:bg-indigo-100 focus:outline-none disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  <Shield className="h-4 w-4 text-indigo-600" />
+                  <div>
+                     <p className="text-[10px] font-bold text-indigo-900">Start Investigation</p>
+                     <p className="text-[9px] text-indigo-600 hidden sm:block">Add to case directly</p>
+                  </div>
+                </button>
               </div>
             </div>
           </section>
 
-          {/* Recent cases */}
-          <section className="border border-slate-200 bg-white flex flex-col">
-            <div className="border-b border-slate-200 px-8 py-6 flex items-center justify-between bg-slate-50">
-              <div>
-                <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Active Ledger</h2>
-                <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Latest investigation results</p>
+          {/* Active Ledger */}
+          <section className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="border-b border-slate-100 px-6 py-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50">
+                   <FileCode2 className="h-4 w-4 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-900">Active Ledger</h2>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Latest investigation results</p>
+                </div>
               </div>
-              <Link href="/cases" className="text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800">Full Access</Link>
+              <Link href="/cases" className="text-[11px] font-bold uppercase tracking-wide text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                Full Access <ArrowRight className="h-3 w-3" />
+              </Link>
             </div>
 
-            <div className="flex-1 divide-y divide-slate-100">
-              {loading ? (
-                <div className="space-y-4 p-8">
-                  {[1, 2, 3].map((item) => (
-                    <div key={item} className="h-16 animate-pulse bg-slate-50 border border-slate-100" />
-                  ))}
-                </div>
-              ) : recentCases.length > 0 ? (
-                recentCases.map((item) => (
-                  <Link
-                    key={item.id}
-                    href={`/cases/${item.id}`}
-                    className="flex items-center gap-4 px-8 py-5 transition hover:bg-slate-50"
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-slate-200 bg-white text-slate-400">
-                      <FileText className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-black uppercase tracking-tight text-slate-900">
-                        {item.header?.subject || item.fileName || 'Unnamed Artifact'}
-                      </p>
-                      <div className="mt-1 flex items-center gap-3 text-[9px] font-bold uppercase tracking-widest text-slate-400">
-                        <span>ID-{item.id}</span>
-                        <span>•</span>
-                        <span>{formatDate(item.createdAt)}</span>
-                      </div>
-                    </div>
-                    <RiskBadge score={item.threatScore} className="hidden sm:inline-flex" />
-                  </Link>
-                ))
-              ) : (
-                <div className="p-12">
-                  <EmptyState
-                    icon={FileText}
-                    title="Ledger Empty"
-                    description="No forensic investigations have been initiated in this workspace."
-                  />
-                </div>
-              )}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <th className="px-6 py-4 font-medium">Date & Time</th>
+                    <th className="px-6 py-4 font-medium">Source Artifact</th>
+                    <th className="px-6 py-4 font-medium">Status</th>
+                    <th className="px-6 py-4 text-right font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {loading ? (
+                    <tr>
+                       <td colSpan={4} className="p-6">
+                         <div className="flex flex-col gap-3">
+                           {[1, 2, 3, 4].map(i => <div key={i} className="h-10 w-full bg-slate-50 animate-pulse rounded-md" />)}
+                         </div>
+                       </td>
+                    </tr>
+                  ) : recentCases.length > 0 ? (
+                    recentCases.map((item) => {
+                      const riskLevel = getRiskLevel(item.threatScore);
+                      let statusBadge = null;
+                      
+                      if (riskLevel === 'HIGH') {
+                        statusBadge = <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-[10px] font-bold text-red-700">Threat Found</span>;
+                      } else if (riskLevel === 'MEDIUM') {
+                        statusBadge = <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold text-amber-700">Suspicious</span>;
+                      } else {
+                        statusBadge = <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold text-emerald-700">Completed</span>;
+                      }
+
+                      return (
+                        <tr key={item.id} className="transition hover:bg-slate-50/50">
+                          <td className="whitespace-nowrap px-6 py-4 text-[11px] font-medium text-slate-500">
+                            {formatDate(item.createdAt)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                               <FileIcon className="h-3 w-3 text-slate-400 shrink-0" />
+                               <span className="truncate max-w-[150px] sm:max-w-[200px] text-[12px] font-medium text-slate-700">
+                                 {item.header?.subject || item.fileName || 'Unnamed Artifact'}
+                               </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                             {statusBadge}
+                          </td>
+                          <td className="px-6 py-4 text-right whitespace-nowrap">
+                            <Link href={`/cases/${item.id}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900 transition-colors">
+                              <Eye className="h-4 w-4" />
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-12 text-center text-sm text-slate-500">
+                        No recent investigations found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </section>
         </div>
 
-        {/* Dashboard Map */}
-        <section className="mt-12 border border-slate-200 bg-white">
-          <div className="border-b border-slate-200 px-8 py-6 bg-slate-50">
-            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Geographic Intelligence</h2>
-            <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Network Infrastructure Locations</p>
-          </div>
-          <div className="p-8">
-            <GoogleMap points={mapPoints} />
-          </div>
-        </section>
+        {/* Intelligence Grid */}
+        <div className="grid gap-6 lg:grid-cols-3 xl:grid-cols-3">
+          
+          {/* Threat Distribution */}
+          <section className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden lg:col-span-1">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-900">Threat Distribution</h2>
+            </div>
+            <div className="p-6 flex-1 flex flex-col justify-center">
+              <RiskDistributionChart cases={history} />
+            </div>
+          </section>
+
+          {/* Authentication Overview */}
+          <section className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden lg:col-span-2">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-900">Authentication Overview</h2>
+            </div>
+            <div className="p-6">
+              <AuthenticationOverview history={history} />
+            </div>
+          </section>
+          
+          {/* Top Suspicious Locations */}
+          <section className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden lg:col-span-1">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-900">Suspicious Locations</h2>
+            </div>
+            <div className="p-6">
+              <TopSuspiciousLocations history={history} />
+            </div>
+          </section>
+
+          {/* Map */}
+          <section className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden lg:col-span-2">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-900">Geographic Intelligence</h2>
+            </div>
+            <div className="p-6 bg-slate-50/50">
+              <GoogleMap points={mapPoints} className="h-[260px] w-full rounded-xl border border-slate-200 bg-slate-100" />
+            </div>
+          </section>
+
+        </div>
       </div>
     </div>
   );
