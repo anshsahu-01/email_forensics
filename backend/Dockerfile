@@ -1,5 +1,8 @@
 # syntax=docker/dockerfile:1.7
 
+# =========================
+# 1. Build Spring Boot app
+# =========================
 FROM eclipse-temurin:17-jdk AS build
 
 WORKDIR /app
@@ -11,49 +14,38 @@ RUN chmod +x mvnw
 RUN ./mvnw clean package -DskipTests
 
 
+# =========================
+# 2. Download MaxMind DBs
+# =========================
+FROM ghcr.io/maxmind/geoipupdate:8.0.0 AS maxmind
+
+RUN --mount=type=secret,id=maxmind_account_id,dst=/run/secrets/maxmind_account_id \
+    --mount=type=secret,id=maxmind_license_key,dst=/run/secrets/maxmind_license_key \
+    GEOIPUPDATE_ACCOUNT_ID_FILE=/run/secrets/maxmind_account_id \
+    GEOIPUPDATE_LICENSE_KEY_FILE=/run/secrets/maxmind_license_key \
+    GEOIPUPDATE_EDITION_IDS="GeoLite2-City GeoLite2-ASN" \
+    GEOIPUPDATE_DB_DIR=/usr/share/GeoIP \
+    geoipupdate
+
+
+# =========================
+# 3. Runtime image
+# =========================
 FROM eclipse-temurin:17-jre
 
 WORKDIR /app
 
-# MaxMind database directory
 RUN mkdir -p /app/data
 
-# Install tools needed to download MaxMind databases
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+# Copy downloaded MaxMind databases
+COPY --from=maxmind /usr/share/GeoIP/GeoLite2-City.mmdb /app/data/GeoLite2-City.mmdb
+COPY --from=maxmind /usr/share/GeoIP/GeoLite2-ASN.mmdb /app/data/GeoLite2-ASN.mmdb
 
-# Download GeoLite2 City + ASN databases using Render build secrets
-RUN --mount=type=secret,id=maxmind_account_id \
-    --mount=type=secret,id=maxmind_license_key \
-    ACCOUNT_ID="$(cat /run/secrets/maxmind_account_id)" \
-    LICENSE_KEY="$(cat /run/secrets/maxmind_license_key)" \
-    curl -fL --retry 3 \
-    -u "${ACCOUNT_ID}:${LICENSE_KEY}" \
-    "https://download.maxmind.com/geoip/databases/GeoLite2-City/download?suffix=tar.gz" \
-    -o /tmp/GeoLite2-City.tar.gz \
-    && tar -xzf /tmp/GeoLite2-City.tar.gz -C /tmp \
-    && find /tmp -name "GeoLite2-City.mmdb" -exec cp {} /app/data/GeoLite2-City.mmdb \; \
-    && rm -rf /tmp/GeoLite2-City*
-
-
-RUN --mount=type=secret,id=maxmind_account_id \
-    --mount=type=secret,id=maxmind_license_key \
-    ACCOUNT_ID="$(cat /run/secrets/maxmind_account_id)" \
-    LICENSE_KEY="$(cat /run/secrets/maxmind_license_key)" \
-    curl -fL --retry 3 \
-    -u "${ACCOUNT_ID}:${LICENSE_KEY}" \
-    "https://download.maxmind.com/geoip/databases/GeoLite2-ASN/download?suffix=tar.gz" \
-    -o /tmp/GeoLite2-ASN.tar.gz \
-    && tar -xzf /tmp/GeoLite2-ASN.tar.gz -C /tmp \
-    && find /tmp -name "GeoLite2-ASN.mmdb" -exec cp {} /app/data/GeoLite2-ASN.mmdb \; \
-    && rm -rf /tmp/GeoLite2-ASN*
-
-
-# Spring Boot configuration
+# MaxMind paths used by Spring Boot
 ENV MAXMIND_DB_PATH=/app/data/GeoLite2-City.mmdb
 ENV MAXMIND_ASN_DB_PATH=/app/data/GeoLite2-ASN.mmdb
 
+# Copy Spring Boot JAR
 COPY --from=build /app/target/emailForensic-0.0.1-SNAPSHOT.jar /app/app.jar
 
 EXPOSE 8080
