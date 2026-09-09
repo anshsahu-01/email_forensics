@@ -1,0 +1,387 @@
+CISA CYBERSECURITY ADVISORY
+
+Advisory ID: AA26-204A
+Title: Russian State-Supported Cyber Actors Conduct Phishing Campaign Targeting Users of Zimbra Collaboration Suite
+Date: July 2026
+
+==================================================
+THREAT ACTOR
+==================================================
+
+Primary name:
+LAUNDRY BEAR
+
+Other industry tracking names:
+- Void Blizzard
+- CL-STA-1114
+- TA488
+
+LAUNDRY BEAR has targeted Western government and commercial
+organizations using Zimbra Collaboration Suite (ZCS).
+
+The campaign has focused on covert acquisition of email data
+and sensitive account information.
+
+
+==================================================
+TARGETING
+==================================================
+
+Targeted sectors include:
+
+- Defense Industrial Base
+- Federal and local government
+- Education
+- Energy
+- Law enforcement
+- Media
+- Non-governmental organizations
+- Technology
+
+The actors likely identify organizations using publicly exposed
+Zimbra infrastructure and then identify individual email users
+for targeting.
+
+
+==================================================
+INITIAL ACCESS / PHISHING
+==================================================
+
+The campaign uses malicious phishing emails.
+
+The malicious email contains a JavaScript payload.
+
+A key characteristic of this campaign is that the victim may
+only need to VIEW the malicious email in a vulnerable Zimbra
+webmail environment.
+
+Traditional phishing often requires the victim to click a link
+or open an attachment. This campaign can instead use a
+view-based exploitation technique.
+
+Since at least November 2025, the actors also sent phishing
+emails from compromised victim infrastructure and accounts.
+
+Using compromised accounts can make phishing messages appear
+more trustworthy and can make anti-phishing detection more
+difficult.
+
+MITRE ATT&CK:
+- T1566 Phishing
+- T1203 Exploitation for Client Execution
+- T1078 Valid Accounts
+
+
+==================================================
+VULNERABILITY / EXPLOITATION
+==================================================
+
+CVE:
+CVE-2025-66376
+
+The vulnerability involves improper sanitization of CSS
+@import directives in email content.
+
+The vulnerability can allow JavaScript contained in email
+content to execute when a malicious email is viewed in a
+vulnerable Zimbra environment.
+
+CVE-2025-66376 was initially published on 5 January 2026.
+
+The campaign activity began before the vulnerability was
+publicly disclosed and patched, meaning it was initially
+exploited as a zero-day.
+
+The malicious email can contain:
+
+- CSS @import directives
+- SVG elements
+- Base64 encoded content
+- JavaScript
+- XOR-encrypted payload content
+
+The outer payload can decode and decrypt the inner payload
+before executing the collection and exfiltration logic.
+
+Attackers can modify encryption keys and add non-functional
+@import directives to generate variations intended to bypass
+basic signatures.
+
+
+==================================================
+MALICIOUS PAYLOAD
+==================================================
+
+The capability associated with this campaign is named:
+
+Ulej
+
+Ulej is designed to collect and exfiltrate information from
+Zimbra users.
+
+The malicious JavaScript executes through the victim's
+authenticated Zimbra webmail browser session.
+
+The payload performs automated collection in multiple stages.
+
+Relevant ATT&CK techniques include:
+
+- T1027.017 SVG Smuggling
+- T1027.013 Encrypted/Encoded File or Information
+- T1027.010 Command Obfuscation
+- T1119 Automated Collection
+- T1185 Browser Session Hijacking
+
+
+==================================================
+DATA TARGETED
+==================================================
+
+The campaign attempts to collect:
+
+- Last 90 days of email communications
+- Email addresses
+- Passwords
+- Global Address List (GAL)
+- Two-factor authentication information
+- Application Passcodes
+- Other sensitive account information
+
+Email collection can occur through API requests to the Zimbra
+mail server rather than directly reading email files from the
+victim's device.
+
+The payload can use the victim's authenticated browser session
+to make API requests as the user.
+
+
+==================================================
+PERSISTENCE / CREDENTIAL ACCESS
+==================================================
+
+The campaign attempts to establish continued access to victim
+accounts.
+
+Observed techniques include:
+
+- Creating Application Passcodes
+- Stealing 2FA scratch codes
+- Credential theft
+- Browser/session abuse
+- Use of compromised accounts
+
+An Application Passcode named:
+
+ZimbraWeb
+
+is considered highly suspicious in the context of this campaign.
+
+Previous activity also included adversary-in-the-middle
+techniques using Evilginx2 to intercept credentials and
+session cookies.
+
+
+==================================================
+EXFILTRATION
+==================================================
+
+Collected information is sent to actor-controlled infrastructure.
+
+Exfiltration protocols include:
+
+- HTTPS
+- DNS
+
+Large payloads may be transferred through HTTPS.
+
+Smaller bandwidth payloads may be transferred through DNS.
+
+DNS-based exfiltration can use Base32 encoding.
+
+Collected information may first be staged on an
+actor-controlled virtual private server (VPS).
+
+
+==================================================
+FLOWERBED INFRASTRUCTURE
+==================================================
+
+The actors use an infrastructure framework called:
+
+Flowerbed
+
+Flowerbed is a Python/Docker-based project containing:
+
+- Catcher
+- Certbot
+- Nginx
+- Gardener
+
+Catcher receives and aggregates exfiltrated information through
+DNS and HTTP.
+
+Nginx operates as an HTTPS reverse proxy.
+
+Certbot supports automated certificate generation.
+
+Gardener performs health checks.
+
+The infrastructure may use SNI validation to reject
+non-Ulej connections.
+
+Infrastructure associated with these campaigns may only be used
+for approximately 7 to 60 days before being replaced.
+
+
+==================================================
+KNOWN INFRASTRUCTURE INDICATORS
+==================================================
+
+Known domains reported in the advisory include:
+
+- zmailanalytics.com
+- zimbra-metadata.com
+- analyticemailmeter.com
+- emailanalytics.com.ua
+- mailnalysis.com
+- i.mailnalysis.com
+- i.zimbrastat.com
+- zimbrastat.com
+
+These indicators are historical and may become outdated.
+
+Exact IOC matching should use the accompanying STIX data rather
+than relying only on this text file.
+
+
+==================================================
+DETECTION / INVESTIGATION
+==================================================
+
+Defenders should monitor Zimbra activity associated with
+suspicious collection and credential-access behavior.
+
+Relevant Zimbra mailbox log activity can include:
+
+- Multiple SearchGalRequest requests from one user over a
+  short period
+- CreateAppSpecificPasswordRequest requests
+- Creation of an Application Passcode named "ZimbraWeb"
+- GetScratchCodesRequest requests
+
+Relevant browser localStorage entries may include:
+
+- zd_comp_YYYY-MM-DD
+
+These entries can help identify potential victims and determine
+the scope of data that may have been exfiltrated.
+
+Organizations should also inspect suspected victim inboxes
+for the original phishing email.
+
+Emails with similar:
+
+- body content
+- sender
+- subject
+- malicious payload
+
+should be identified and quarantined to prevent additional
+exploitation.
+
+
+==================================================
+NETWORK / DNS DETECTION
+==================================================
+
+Monitor for:
+
+- Significant outbound data transfers
+- Connections to VPS infrastructure not normally used by the
+  organization
+- Frequent DNS requests to suspicious domains
+- Random-looking DNS subdomains
+- Sudden connection spikes to recently established domains
+- Connections from VPN providers to internal webmail services
+
+
+==================================================
+MITIGATION
+==================================================
+
+Organizations should:
+
+- Patch CVE-2025-66376
+- Apply current security updates to Zimbra/email systems
+- Use patched Zimbra Collaboration Suite versions
+- Consider alternative mail clients if patching is not feasible
+- Monitor outbound network traffic
+- Monitor suspicious DNS activity
+- Search for known indicators of compromise
+- Review Zimbra logs
+- Revoke Application Passcodes when compromise is suspected
+- Revoke 2FA scratch keys when compromise is suspected
+- Reset affected user passwords
+- Review credentials that may have been stored in password
+  managers
+
+
+==================================================
+MITRE ATT&CK TECHNIQUES
+==================================================
+
+Relevant techniques described by the advisory include:
+
+T1566   Phishing
+T1203   Exploitation for Client Execution
+T1078   Valid Accounts
+T1199   Trusted Relationship
+T1027.017 SVG Smuggling
+T1027.013 Encrypted/Encoded File or Information
+T1027.010 Command Obfuscation
+T1119   Automated Collection
+T1185   Browser Session Hijacking
+T1114   Email Collection
+T1114.002 Remote Email Collection
+T1074.002 Remote Data Staging
+T1560   Archive Collected Data
+T1087   Account Discovery
+T1048   Exfiltration Over Alternative Protocol
+T1048.002 Exfiltration Over Asymmetric Encrypted Non-C2 Protocol
+T1048.003 Exfiltration Over Unencrypted Non-C2 Protocol
+T1556.006 Multi-Factor Authentication Modification
+T1557   Adversary-in-the-Middle
+
+
+==================================================
+RAG ANALYSIS NOTES
+==================================================
+
+When analyzing a new email, the following characteristics may
+increase similarity to this threat intelligence:
+
+1. Malicious JavaScript embedded in email content.
+2. SVG-based payloads.
+3. Suspicious CSS @import directives.
+4. Base64 encoded payloads.
+5. Obfuscated or XOR-encrypted content.
+6. Emails targeting Zimbra users.
+7. Phishing from compromised accounts.
+8. Suspicious URLs or domains associated with the campaign.
+9. Content designed to execute upon email viewing rather than
+   requiring a user to click a link.
+10. Indicators associated with Zimbra exploitation.
+11. Patterns associated with credential or session theft.
+12. Patterns associated with automated email collection.
+13. Infrastructure or domains associated with known campaign
+    activity.
+
+RAG retrieval should use this advisory as threat-intelligence
+context. Exact domain/IP/indicator matching should be performed
+separately against structured IOC data.
+
+IMPORTANT:
+Similarity to this advisory does NOT by itself prove that an
+email is malicious. The AI should combine retrieved intelligence
+with email content, URL analysis, sender/header analysis,
+SPF/DKIM/DMARC results, and other available evidence.
