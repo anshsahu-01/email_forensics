@@ -131,13 +131,6 @@ public class EmailCaseService {
             // IP ENRICHMENT
             // ========================================================
 
-            // Prefer:
-            // senderIp
-            //     ↓
-            // connectingIp
-            //     ↓
-            // originatingIp
-
             String enrichmentIp =
                     parsedResult.getSenderIp() != null
                             ? parsedResult.getSenderIp()
@@ -165,7 +158,6 @@ public class EmailCaseService {
                             GeoLocationResult.builder()
                                     .build();
                 }
-
 
                 emailCase.setGeoCountry(
                         geoResult.getCountry()
@@ -221,7 +213,6 @@ public class EmailCaseService {
                                     .build();
                 }
 
-
                 ipIndicator.setAbuseIpDbStatus(
                         abuseResult.getStatus()
                 );
@@ -257,7 +248,6 @@ public class EmailCaseService {
                                     .build();
                 }
 
-
                 ipIndicator.setAsnNumber(
                         asnResult.getAsnNumber()
                 );
@@ -284,7 +274,6 @@ public class EmailCaseService {
                             RdapResult.builder()
                                     .build();
                 }
-
 
                 ipIndicator.setRdapServer(
                         rdapResult.getRdapServer()
@@ -424,21 +413,35 @@ public class EmailCaseService {
                                 parsedResult.getSenderFrom()
                         );
 
+                if (senderDomain == null) {
+                    senderDomain = "";
+                }
+
+
+                String subject =
+                        parsedResult.getSubject() != null
+                                ? parsedResult.getSubject()
+                                : "";
+
+
+                String bodyText =
+                        parsedResult.getRawBody() != null
+                                ? parsedResult.getRawBody()
+                                : "";
+
+
+                List<String> urls =
+                        parsedResult.getExtractedUrls() != null
+                                ? parsedResult.getExtractedUrls()
+                                : Collections.emptyList();
+
 
                 AiAnalysisRequest aiRequest =
                         AiAnalysisRequest.builder()
-                                .subject(
-                                        parsedResult.getSubject()
-                                )
-                                .bodyText(
-                                        parsedResult.getRawBody()
-                                )
-                                .urls(
-                                        parsedResult.getExtractedUrls()
-                                )
-                                .senderDomain(
-                                        senderDomain
-                                )
+                                .subject(subject)
+                                .bodyText(bodyText)
+                                .urls(urls)
+                                .senderDomain(senderDomain)
                                 .build();
 
 
@@ -457,8 +460,13 @@ public class EmailCaseService {
                 );
 
                 System.out.println(
+                        "Body length: "
+                                + bodyText.length()
+                );
+
+                System.out.println(
                         "URLs: "
-                                + parsedResult.getExtractedUrls()
+                                + urls
                 );
 
                 System.out.println(
@@ -519,6 +527,7 @@ public class EmailCaseService {
                         "========================================"
                 );
 
+
             } catch (Exception aiException) {
 
                 // ====================================================
@@ -541,6 +550,8 @@ public class EmailCaseService {
                 System.err.println(
                         "========================================"
                 );
+
+                aiException.printStackTrace();
             }
 
 
@@ -950,8 +961,6 @@ public class EmailCaseService {
 
         } catch (Exception e) {
 
-            // Fallback for malformed headers
-
             String[] parts =
                     headerValue.split(",");
 
@@ -1015,9 +1024,6 @@ public class EmailCaseService {
             String email =
                     senderFrom.trim();
 
-
-            // Example:
-            // John Doe <john@example.com>
 
             if (email.contains("<")
                     && email.contains(">")) {

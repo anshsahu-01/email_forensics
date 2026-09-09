@@ -150,7 +150,6 @@ def extract_domain_from_url(
         hostname = parsed.hostname
 
         if not hostname:
-
             return ""
 
         return hostname.lower().strip(".")
@@ -1340,6 +1339,36 @@ def analyze_email(
     request: EmailAnalysisRequest
 ):
 
+    # ========================================================
+    # DEBUG: CONFIRM SPRING REQUEST REACHED FASTAPI
+    # ========================================================
+
+    print("\n========================================")
+    print("AI SERVICE RECEIVED REQUEST")
+    print("========================================")
+
+    print(
+        "Subject:",
+        request.subject
+    )
+
+    print(
+        "Body length:",
+        len(request.bodyText or "")
+    )
+
+    print(
+        "URLs:",
+        request.urls
+    )
+
+    print(
+        "Sender domain:",
+        request.senderDomain
+    )
+
+    print("========================================\n")
+
     try:
 
         # ----------------------------------------------------
@@ -1364,6 +1393,8 @@ def analyze_email(
         # URL ANALYSIS
         # ----------------------------------------------------
 
+        print("[AI] Running URL analysis...")
+
         url_analysis = analyze_urls(
             urls=urls,
             sender_domain=sender_domain
@@ -1372,6 +1403,8 @@ def analyze_email(
         # ----------------------------------------------------
         # INDICATORS
         # ----------------------------------------------------
+
+        print("[AI] Detecting indicators...")
 
         indicators = detect_indicators(
             subject=subject,
@@ -1385,6 +1418,8 @@ def analyze_email(
         # HEURISTIC
         # ----------------------------------------------------
 
+        print("[AI] Calculating heuristic score...")
+
         heuristic_score = calculate_heuristic_score(
             subject=subject,
             body=body,
@@ -1396,6 +1431,8 @@ def analyze_email(
         # ----------------------------------------------------
         # WHOIS
         # ----------------------------------------------------
+
+        print("[AI] Running domain intelligence...")
 
         whois_data, whois_insight = (
             retrieve_whois_context(
@@ -1420,6 +1457,10 @@ def analyze_email(
             whois_score=whois_score
         )
 
+        print(
+            f"[AI] Threat score: {threat_score}"
+        )
+
         # ----------------------------------------------------
         # RISK + VERDICT
         # ----------------------------------------------------
@@ -1432,9 +1473,19 @@ def analyze_email(
             threat_score
         )
 
+        print(
+            f"[AI] Risk: {risk_level}"
+        )
+
+        print(
+            f"[AI] Verdict: {verdict}"
+        )
+
         # ----------------------------------------------------
         # RAG
         # ----------------------------------------------------
+
+        print("[AI] Querying CISA RAG...")
 
         rag_context, rag_insights = (
             retrieve_rag_context(
@@ -1443,6 +1494,11 @@ def analyze_email(
                 urls=urls,
                 sender_domain=sender_domain
             )
+        )
+
+        print(
+            f"[AI] RAG context length: "
+            f"{len(rag_context)}"
         )
 
         # ----------------------------------------------------
@@ -1513,6 +1569,27 @@ def analyze_email(
         # LLM ANALYSIS
         # ----------------------------------------------------
 
+        print("\n========================================")
+        print("SENDING EVIDENCE TO LLAMA")
+        print("========================================")
+
+        print(
+            "LLM model:",
+            LLM_MODEL
+        )
+
+        print(
+            "Indicators:",
+            len(indicators)
+        )
+
+        print(
+            "RAG context:",
+            len(rag_context)
+        )
+
+        print("========================================\n")
+
         llama_analysis = llm_service.analyze(
             threat_score=threat_score,
             risk_level=risk_level,
@@ -1526,6 +1603,28 @@ def analyze_email(
             whois_analysis=whois_data,
             rag_context=rag_context
         )
+
+        print("\n========================================")
+        print("LLAMA ANALYSIS COMPLETE")
+        print("========================================")
+
+        print(
+            "Summary:",
+            llama_analysis.get(
+                "summary",
+                ""
+            )
+        )
+
+        print(
+            "Reasoning:",
+            llama_analysis.get(
+                "reasoning",
+                []
+            )
+        )
+
+        print("========================================\n")
 
         # ----------------------------------------------------
         # FINAL SUMMARY
