@@ -64,3 +64,38 @@ export interface EmailCase {
   header: EmailHeader | null;
   indicators: EmailIndicator[] | null;
 }
+
+
+export interface EmailIndicator {
+  id: number;
+  type: string;
+  value: string;
+  details: string | null;
+
+  vtMalicious: number | null;
+  vtSuspicious: number | null;
+  vtHarmless: number | null;
+  vtUndetected: number | null;
+  vtReputation: string | null;
+
+  // AbuseIPDB
+  abuseIpDbStatus: string | null;
+  abuseConfidenceScore: number | null;
+  totalReports: number | null;
+  lastReportedAt: string | null;
+
+  // ASN / Network Intelligence
+  asnNumber: string | null;
+  asnOrg: string | null;
+
+  // RDAP / Registry Intelligence
+  rdapServer: string | null;
+  rdapRegistry: string | null;
+  rdapHandle: string | null;
+  rdapName: string | null;
+  rdapOrganization: string | null;
+  rdapCountry: string | null;
+  rdapStartAddress: string | null;
+  rdapEndAddress: string | null;
+  rdapCidr: string | null;
+}
