@@ -21,8 +21,11 @@ public class EmailCase {
     private Long id;
 
     private String fileName;
+
     private String fileHash;
+
     private String analysisStatus;
+
     private Integer threatScore;
 
     private String originatingIp;
@@ -31,8 +34,9 @@ public class EmailCase {
     private String receivedHeaders;
 
     /**
-     * Intentionally left unpopulated.
-     * Not persisted for storage optimization and privacy/security reasons.
+     * Parsed email body.
+     *
+     * This is also used as the source text sent to the AI analysis service.
      */
     @Column(columnDefinition = "TEXT")
     private String rawBody;
@@ -42,49 +46,58 @@ public class EmailCase {
     @Column(columnDefinition = "TEXT")
     private String spoofingFindings;
 
-    // -----------------------------------------------------------------------
-    // Approximate IP geolocation — populated from MaxMind GeoIP2 lookup.
-    // All fields are nullable; existing records without geolocation remain valid.
-    // Coordinates represent approximate IP-based location, NOT exact physical location.
-    // -----------------------------------------------------------------------
-    private String geoCountry;
-    private String geoCity;
-    private Double geoLatitude;
-    private Double geoLongitude;
-    private String geoTimezone;
 
     // -----------------------------------------------------------------------
-    // Sender IP Intelligence — populated only from explicit evidentiary headers.
-    // senderIp is NEVER derived from the Received chain alone.
-    // originatingIp (above) retains its existing semantics: earliest public IP
-    // in the Received chain, which may be a mail relay/infrastructure IP.
+    // Approximate IP geolocation
+    // -----------------------------------------------------------------------
+
+    private String geoCountry;
+
+    private String geoCity;
+
+    private Double geoLatitude;
+
+    private Double geoLongitude;
+
+    private String geoTimezone;
+
+
+    // -----------------------------------------------------------------------
+    // Sender IP Intelligence
     // -----------------------------------------------------------------------
 
     /**
-     * Sender/client IP from explicit client-origin headers only
-     * (X-Originating-IP, X-Sender-IP, X-Client-IP, X-Real-IP, Received-SPF client-ip=).
-     * Null = sender device IP was not exposed by message headers.
+     * Sender/client IP from explicit client-origin headers only.
+     *
+     * Examples:
+     * X-Originating-IP
+     * X-Sender-IP
+     * X-Client-IP
+     * X-Real-IP
+     * Received-SPF client-ip
      */
     private String senderIp;
 
     /**
-     * The specific header that provided senderIp.
-     * Values: "X-Originating-IP", "X-Sender-IP", "X-Client-IP", "X-Real-IP",
-     *         "Received-SPF", or "NOT_EXPOSED".
+     * Header/source that provided senderIp.
      */
     private String senderIpSource;
 
     /**
-     * Confidence classification for senderIp:
-     * "CONFIRMED"   — explicit client-origin header present (unauthenticated, may be forged).
-     * "NOT_EXPOSED" — no credible explicit evidence; sender device IP is unknown.
+     * Confidence classification for senderIp.
      */
     private String senderIpConfidence;
 
+
+    // -----------------------------------------------------------------------
+    // Connecting IP Intelligence
+    // -----------------------------------------------------------------------
+
     /**
      * Connecting IP observed by the receiving MTA.
-     * Typically populated from Received-SPF client-ip=.
-     * This may be a mail infrastructure relay and should NEVER be confused with senderIp.
+     *
+     * This may be a mail relay/infrastructure IP and should not be
+     * confused with senderIp.
      */
     private String connectingIp;
 
@@ -92,29 +105,174 @@ public class EmailCase {
 
     private String connectingIpConfidence;
 
+
+    // -----------------------------------------------------------------------
+    // AI FORENSIC ANALYSIS
+    //
+    // Spring Boot
+    //      ↓
+    // Python FastAPI
+    //      ↓
+    // CISA RAG
+    //      ↓
+    // Llama
+    //      ↓
+    // Structured forensic result
+    // -----------------------------------------------------------------------
+
+    /**
+     * AI-generated risk level.
+     *
+     * Example:
+     * LOW_RISK
+     * MEDIUM_RISK
+     * HIGH_RISK
+     * CRITICAL_RISK
+     */
+    private String aiRiskLevel;
+
+    /**
+     * AI-generated verdict.
+     *
+     * Example:
+     * LEGITIMATE
+     * SUSPICIOUS
+     * MALICIOUS
+     * PHISHING
+     */
+    private String aiVerdict;
+
+    /**
+     * AI confidence percentage.
+     */
+    private Double aiConfidence;
+
+    /**
+     * AI-generated forensic summary.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String aiSummary;
+
+    /**
+     * AI reasoning/evidence chain stored as JSON.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String aiReasoning;
+
+    /**
+     * AI-detected indicators stored as JSON.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String aiIndicators;
+
+    /**
+     * ATT&CK / attack techniques identified by AI.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String aiAttackTechniques;
+
+    /**
+     * Extracted indicators of compromise.
+     *
+     * Stored as JSON because the Python service returns a structured map.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String aiIocs;
+
+    /**
+     * AI analysis of the email's origin.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String aiOriginAnalysis;
+
+    /**
+     * CISA/RAG information used during analysis.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String aiRagInsights;
+
+    /**
+     * Domain/WHOIS/RDAP-style intelligence returned by AI service.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String aiWhoisAnalysis;
+
+    /**
+     * URL analysis returned by AI service.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String aiUrlAnalysis;
+
+    /**
+     * Graph/network relationship data generated by AI analysis.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String aiGraphs;
+
+    /**
+     * AI service error, if AI analysis failed.
+     *
+     * Email ingestion itself should still be able to succeed when
+     * the AI service is unavailable.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String aiError;
+
+
+    // -----------------------------------------------------------------------
+    // TIMESTAMP
+    // -----------------------------------------------------------------------
+
     private LocalDateTime createdAt;
 
+
+    // -----------------------------------------------------------------------
+    // RELATIONSHIPS
+    // -----------------------------------------------------------------------
+
     @JsonManagedReference
-    @OneToOne(mappedBy = "emailCase", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToOne(
+            mappedBy = "emailCase",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
     private EmailHeader header;
+
 
     @JsonManagedReference
     @Builder.Default
-    @OneToMany(mappedBy = "emailCase", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(
+            mappedBy = "emailCase",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
     private List<EmailIndicator> indicators = new ArrayList<>();
 
+
+    // -----------------------------------------------------------------------
+    // HELPER METHODS
+    // -----------------------------------------------------------------------
+
     public void setHeader(EmailHeader header) {
+
         this.header = header;
+
         if (header != null) {
             header.setEmailCase(this);
         }
     }
 
+
     public void addIndicator(EmailIndicator indicator) {
+
         if (this.indicators == null) {
             this.indicators = new ArrayList<>();
         }
+
         this.indicators.add(indicator);
-        indicator.setEmailCase(this);
+
+        if (indicator != null) {
+            indicator.setEmailCase(this);
+        }
     }
 }

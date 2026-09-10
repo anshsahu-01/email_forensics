@@ -25,6 +25,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Locale;
+
 import jakarta.mail.internet.InternetAddress;
 
 @Service
@@ -75,6 +78,11 @@ public class EmailCaseService {
 
             EmailParsedResult parsedResult =
                     parserService.parseEml(inputStream);
+
+
+            // ========================================================
+            // CREATE EMAIL CASE
+            // ========================================================
 
             EmailCase emailCase = EmailCase.builder()
                     .fileName(file.getOriginalFilename())
@@ -159,6 +167,7 @@ public class EmailCaseService {
                                     .build();
                 }
 
+
                 emailCase.setGeoCountry(
                         geoResult.getCountry()
                 );
@@ -213,6 +222,7 @@ public class EmailCaseService {
                                     .build();
                 }
 
+
                 ipIndicator.setAbuseIpDbStatus(
                         abuseResult.getStatus()
                 );
@@ -248,6 +258,7 @@ public class EmailCaseService {
                                     .build();
                 }
 
+
                 ipIndicator.setAsnNumber(
                         asnResult.getAsnNumber()
                 );
@@ -274,6 +285,7 @@ public class EmailCaseService {
                             RdapResult.builder()
                                     .build();
                 }
+
 
                 ipIndicator.setRdapServer(
                         rdapResult.getRdapServer()
@@ -404,6 +416,10 @@ public class EmailCaseService {
             // Llama 3.2
             //   ↓
             // AI JSON
+            //   ↓
+            // EmailCase
+            //   ↓
+            // PostgreSQL
             // ========================================================
 
             try {
@@ -474,6 +490,10 @@ public class EmailCaseService {
                 );
 
 
+                // ====================================================
+                // CALL PYTHON AI SERVICE
+                // ====================================================
+
                 AiAnalysisResponse aiResponse =
                         aiServiceClient.analyze(
                                 aiRequest
@@ -481,51 +501,190 @@ public class EmailCaseService {
 
 
                 // ====================================================
-                // DISPLAY AI RESPONSE
+                // SAVE AI RESPONSE INTO EMAIL CASE
                 // ====================================================
 
-                System.out.println();
-                System.out.println(
-                        "========================================"
-                );
+                if (aiResponse != null) {
 
-                System.out.println(
-                        "AI ANALYSIS RESPONSE"
-                );
+                    emailCase.setAiRiskLevel(
+                            aiResponse.getRiskLevel()
+                    );
 
-                System.out.println(
-                        "Threat Score: "
-                                + aiResponse.getThreatScore()
-                );
+                    emailCase.setAiVerdict(
+                            aiResponse.getVerdict()
+                    );
 
-                System.out.println(
-                        "Risk Level: "
-                                + aiResponse.getRiskLevel()
-                );
+                    emailCase.setAiConfidence(
+                            aiResponse.getConfidence()
+                    );
 
-                System.out.println(
-                        "Verdict: "
-                                + aiResponse.getVerdict()
-                );
+                    emailCase.setAiSummary(
+                            aiResponse.getSummary()
+                    );
 
-                System.out.println(
-                        "Confidence: "
-                                + aiResponse.getConfidence()
-                );
 
-                System.out.println(
-                        "Summary: "
-                                + aiResponse.getSummary()
-                );
+                    emailCase.setAiReasoning(
+                            serializeJson(
+                                    aiResponse.getReasoning()
+                            )
+                    );
 
-                System.out.println(
-                        "Reasoning: "
-                                + aiResponse.getReasoning()
-                );
 
-                System.out.println(
-                        "========================================"
-                );
+                    emailCase.setAiIndicators(
+                            serializeJson(
+                                    aiResponse.getIndicators()
+                            )
+                    );
+
+
+                    emailCase.setAiAttackTechniques(
+                            serializeJson(
+                                    aiResponse.getAttackTechniques()
+                            )
+                    );
+
+
+                    emailCase.setAiIocs(
+                            serializeJson(
+                                    aiResponse.getIocs()
+                            )
+                    );
+
+
+                    emailCase.setAiOriginAnalysis(
+                            serializeJson(
+                                    aiResponse.getOriginAnalysis()
+                            )
+                    );
+
+
+                    emailCase.setAiRagInsights(
+                            aiResponse.getRagInsights()
+                    );
+
+
+                    emailCase.setAiWhoisAnalysis(
+                            serializeJson(
+                                    aiResponse.getWhoisAnalysis()
+                            )
+                    );
+
+
+                    emailCase.setAiUrlAnalysis(
+                            serializeJson(
+                                    aiResponse.getUrlAnalysis()
+                            )
+                    );
+
+
+                    emailCase.setAiGraphs(
+                            serializeJson(
+                                    aiResponse.getGraphs()
+                            )
+                    );
+
+
+                    emailCase.setAiError(
+                            aiResponse.getError()
+                    );
+
+
+                    // =================================================
+                    // USE AI SCORE AS THE FINAL THREAT SCORE
+                    //
+                    // The deterministic Spring score remains useful
+                    // as supporting evidence, but the final case score
+                    // should reflect the complete AI forensic analysis.
+                    // =================================================
+
+                    if (aiResponse.getThreatScore() != null) {
+
+                        double aiScore =
+                                aiResponse.getThreatScore();
+
+                        int finalScore =
+                                (int) Math.round(
+                                        Math.max(
+                                                0,
+                                                Math.min(
+                                                        100,
+                                                        aiScore
+                                                )
+                                        )
+                                );
+
+                        emailCase.setThreatScore(
+                                finalScore
+                        );
+                    }
+
+
+                    // =================================================
+                    // UPDATE ANALYSIS STATUS
+                    // =================================================
+
+                    if (aiResponse.getError() != null
+                            && !aiResponse.getError().isBlank()) {
+
+                        emailCase.setAnalysisStatus(
+                                "ANALYZED_WITH_AI_ERROR"
+                        );
+
+                    } else {
+
+                        emailCase.setAnalysisStatus(
+                                "ANALYZED"
+                        );
+                    }
+
+
+                    // =================================================
+                    // DISPLAY AI RESPONSE
+                    // =================================================
+
+                    System.out.println();
+                    System.out.println(
+                            "========================================"
+                    );
+
+                    System.out.println(
+                            "AI ANALYSIS RESPONSE"
+                    );
+
+                    System.out.println(
+                            "Threat Score: "
+                                    + aiResponse.getThreatScore()
+                    );
+
+                    System.out.println(
+                            "Risk Level: "
+                                    + aiResponse.getRiskLevel()
+                    );
+
+                    System.out.println(
+                            "Verdict: "
+                                    + aiResponse.getVerdict()
+                    );
+
+                    System.out.println(
+                            "Confidence: "
+                                    + aiResponse.getConfidence()
+                    );
+
+                    System.out.println(
+                            "Summary: "
+                                    + aiResponse.getSummary()
+                    );
+
+                    System.out.println(
+                            "Reasoning: "
+                                    + aiResponse.getReasoning()
+                    );
+
+                    System.out.println(
+                            "========================================"
+                    );
+                }
 
 
             } catch (Exception aiException) {
@@ -552,6 +711,15 @@ public class EmailCaseService {
                 );
 
                 aiException.printStackTrace();
+
+
+                emailCase.setAnalysisStatus(
+                        "ANALYZED_WITH_AI_ERROR"
+                );
+
+                emailCase.setAiError(
+                        aiException.getMessage()
+                );
             }
 
 
@@ -562,6 +730,30 @@ public class EmailCaseService {
             return caseRepository.save(
                     emailCase
             );
+        }
+    }
+
+
+    // ================================================================
+    // JSON SERIALIZATION HELPER
+    // ================================================================
+
+    private String serializeJson(
+            Object value) {
+
+        if (value == null) {
+            return null;
+        }
+
+        try {
+
+            return objectMapper.writeValueAsString(
+                    value
+            );
+
+        } catch (JsonProcessingException e) {
+
+            return null;
         }
     }
 
@@ -757,10 +949,12 @@ public class EmailCaseService {
                         parsedResult.getSenderFrom()
                 );
 
+
         List<String> replyToDomains =
                 extractDomains(
                         parsedResult.getReplyTo()
                 );
+
 
         List<String> returnPathDomains =
                 extractDomains(
@@ -822,7 +1016,9 @@ public class EmailCaseService {
 
         String dmarcStatus =
                 parsedResult.getDmarcStatus() != null
-                        ? parsedResult.getDmarcStatus().toLowerCase()
+                        ? parsedResult.getDmarcStatus().toLowerCase(
+                        Locale.ROOT
+                )
                         : "unknown";
 
 
@@ -945,7 +1141,7 @@ public class EmailCaseService {
                                             email.lastIndexOf('@') + 1
                                     )
                                     .toLowerCase(
-                                            java.util.Locale.ROOT
+                                            Locale.ROOT
                                     )
                                     .trim();
 
@@ -958,6 +1154,7 @@ public class EmailCaseService {
                     }
                 }
             }
+
 
         } catch (Exception e) {
 
@@ -974,7 +1171,7 @@ public class EmailCaseService {
                                             part.lastIndexOf('@') + 1
                                     )
                                     .toLowerCase(
-                                            java.util.Locale.ROOT
+                                            Locale.ROOT
                                     )
                                     .trim();
 
@@ -1059,7 +1256,7 @@ public class EmailCaseService {
                     )
                     .trim()
                     .toLowerCase(
-                            java.util.Locale.ROOT
+                            Locale.ROOT
                     );
 
         } catch (Exception e) {
