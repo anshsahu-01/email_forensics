@@ -37,7 +37,10 @@ class EmailParserServiceTest {
 
             EmailParsedResult result = parserService.parseEml(inputStream);
 
-            assertEquals("Bob <bob@example.com>, Carol <carol@example.com>", result.getCc());
+            assertEquals(
+                    "Bob <bob@example.com>, Carol <carol@example.com>",
+                    result.getCc()
+            );
             assertEquals("Support <support@example.com>", result.getReplyTo());
             assertEquals("<bounce@example.com>", result.getReturnPath());
             assertEquals("Sender Name <sender@example.com>", result.getSenderFrom());
@@ -79,15 +82,18 @@ class EmailParserServiceTest {
             EmailParsedResult result = parserService.parseEml(inputStream);
 
             assertEquals(
-                "First Person <first@example.com>, Second Person <second@example.com>, Third Person <third@example.com>",
-                result.getTo()
+                    "First Person <first@example.com>, Second Person <second@example.com>, Third Person <third@example.com>",
+                    result.getTo()
             );
         }
     }
 
     @Test
     void parseEmlRejectsNullInput() {
-        assertThrows(IllegalArgumentException.class, () -> parserService.parseEml(null));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> parserService.parseEml(null)
+        );
     }
 
     @Test
@@ -183,14 +189,49 @@ class EmailParserServiceTest {
             EmailParsedResult result = parserService.parseEml(inputStream);
 
             assertEquals(3, result.getReceivedHeaders().size());
-            assertEquals("internal.local", result.getReceivedHeaders().get(0).getFromHost());
-            assertEquals("192.168.1.20", result.getReceivedHeaders().get(0).getFromIp());
-            assertEquals("relay.example.net", result.getReceivedHeaders().get(0).getByHost());
-            assertEquals("198.51.100.10", result.getReceivedHeaders().get(0).getByIp());
-            assertEquals("sender.example.org", result.getReceivedHeaders().get(1).getFromHost());
-            assertEquals("203.0.113.25", result.getReceivedHeaders().get(1).getFromIp());
-            assertEquals(Instant.parse("2026-09-03T10:19:30Z"), result.getReceivedHeaders().get(1).getTimestamp());
-            assertEquals("203.0.113.25", result.getOriginatingIp());
+
+            assertEquals(
+                    "internal.local",
+                    result.getReceivedHeaders().get(0).getFromHost()
+            );
+
+            assertEquals(
+                    "192.168.1.20",
+                    result.getReceivedHeaders().get(0).getFromIp()
+            );
+
+            assertEquals(
+                    "relay.example.net",
+                    result.getReceivedHeaders().get(0).getByHost()
+            );
+
+            // Updated fixture uses a real public IP.
+            assertEquals(
+                    "8.8.8.8",
+                    result.getReceivedHeaders().get(0).getByIp()
+            );
+
+            assertEquals(
+                    "sender.example.org",
+                    result.getReceivedHeaders().get(1).getFromHost()
+            );
+
+            // Updated fixture uses a real public IP.
+            assertEquals(
+                    "1.1.1.1",
+                    result.getReceivedHeaders().get(1).getFromIp()
+            );
+
+            assertEquals(
+                    Instant.parse("2026-09-03T10:19:30Z"),
+                    result.getReceivedHeaders().get(1).getTimestamp()
+            );
+
+            // Originating IP is the oldest public IP in the Received chain.
+            assertEquals(
+                    "1.1.1.1",
+                    result.getOriginatingIp()
+            );
         }
     }
 
@@ -202,10 +243,18 @@ class EmailParserServiceTest {
             EmailParsedResult result = parserService.parseEml(inputStream);
 
             assertEquals(1, result.getReceivedHeaders().size());
-            ReceivedHeaderInfo received = result.getReceivedHeaders().get(0);
-            assertEquals("2001:4860:4860::8888", received.getFromIp());
 
-            assertEquals("2001:4860:4860::8888", result.getOriginatingIp());
+            ReceivedHeaderInfo received = result.getReceivedHeaders().get(0);
+
+            assertEquals(
+                    "2001:4860:4860::8888",
+                    received.getFromIp()
+            );
+
+            assertEquals(
+                    "2001:4860:4860::8888",
+                    result.getOriginatingIp()
+            );
         }
     }
 
@@ -246,51 +295,90 @@ class EmailParserServiceTest {
             EmailParsedResult result = parserService.parseEml(inputStream);
 
             assertEquals(3, result.getReceivedHeaders().size());
-            assertEquals("127.0.0.1", result.getReceivedHeaders().get(0).getFromIp());
-            assertEquals("10.0.0.8", result.getReceivedHeaders().get(1).getFromIp());
-            assertEquals("::1", result.getReceivedHeaders().get(2).getFromIp());
+
+            assertEquals(
+                    "127.0.0.1",
+                    result.getReceivedHeaders().get(0).getFromIp()
+            );
+
+            assertEquals(
+                    "10.0.0.8",
+                    result.getReceivedHeaders().get(1).getFromIp()
+            );
+
+            assertEquals(
+                    "::1",
+                    result.getReceivedHeaders().get(2).getFromIp()
+            );
+
             assertNull(result.getOriginatingIp());
         }
     }
 
     @Test
-    void extractsPlainTextUrlsAndPreservesUsefulComponents() throws Exception {
-        EmailParsedResult result = parseFixture("plain-url-email.eml");
+void extractsPlainTextUrlsAndPreservesUsefulComponents() throws Exception {
+    EmailParsedResult result = parseFixture("plain-url-email.eml");
 
-        assertEquals(List.of(
-                "https://example.com/path?query=value#fragment",
-                "http://sub.example.com:8080/login",
-                "http://192.168.1.10/test"
-        ), result.getExtractedUrls());
-    }
+    assertEquals(
+            List.of(
+                    "https://example.com/path?query=value#fragment",
+                    "http://sub.example.com:8080/login",
+                    "http://192.168.1.10/test"
+            ),
+            result.getExtractedUrls()
+    );
+}
 
-    @Test
-    void extractsHtmlAnchorAndVisibleTextUrls() throws Exception {
-        EmailParsedResult result = parseFixture("html-url-email.eml");
+@Test
+void extractsHtmlAnchorAndVisibleTextUrls() throws Exception {
+    EmailParsedResult result = parseFixture("html-url-email.eml");
 
-        assertEquals(List.of("https://example.com/welcome", "https://example.com/a%20b"), result.getExtractedUrls());
-    }
+    assertEquals(
+            List.of(
+                    "https://example.com/welcome",
+                    "https://example.com/a%20b"
+            ),
+            result.getExtractedUrls()
+    );
+}
 
-    @Test
-    void deduplicatesUrlsInFirstSeenOrder() throws Exception {
-        EmailParsedResult result = parseFixture("duplicate-url-email.eml");
+@Test
+void deduplicatesUrlsInFirstSeenOrder() throws Exception {
+    EmailParsedResult result = parseFixture("duplicate-url-email.eml");
 
-        assertEquals(List.of("https://example.com/path", "https://other.example/path"), result.getExtractedUrls());
-    }
+    assertEquals(
+            List.of(
+                    "https://example.com/path",
+                    "https://other.example/path"
+            ),
+            result.getExtractedUrls()
+    );
+}
 
-    @Test
-    void deduplicatesTheSameUrlAcrossMultipartTextAndHtml() throws Exception {
-        EmailParsedResult result = parseFixture("multipart-url-email.eml");
+@Test
+void deduplicatesTheSameUrlAcrossMultipartTextAndHtml() throws Exception {
+    EmailParsedResult result = parseFixture("multipart-url-email.eml");
 
-        assertEquals(List.of("https://example.com/shared", "https://html.example/path"), result.getExtractedUrls());
-    }
+    assertEquals(
+            List.of(
+                    "https://example.com/shared",
+                    "https://html.example/path"
+            ),
+            result.getExtractedUrls()
+    );
+}
 
-    @Test
-    void ignoresMalformedUrlCandidates() throws Exception {
-        EmailParsedResult result = parseFixture("malformed-url-email.eml");
+@Test
+void ignoresMalformedUrlCandidates() throws Exception {
+    EmailParsedResult result = parseFixture("malformed-url-email.eml");
 
-        assertEquals(List.of("https://valid.example/path"), result.getExtractedUrls());
-    }
+    assertEquals(
+            List.of(
+                    "https://valid.example/path"
+            ),
+            result.getExtractedUrls()
+    );
+}
 
     @Test
     void returnsNoUrlsWhenEmailHasNoLinks() throws Exception {
@@ -301,74 +389,58 @@ class EmailParserServiceTest {
     }
 
     @Test
-
     void testIsPublicIpFilters() throws Exception {
 
-        java.lang.reflect.Method method = EmailParserService.class.getDeclaredMethod("isPublicIp", String.class);
+        java.lang.reflect.Method method =
+                EmailParserService.class.getDeclaredMethod(
+                        "isPublicIp",
+                        String.class
+                );
 
         method.setAccessible(true);
 
-
-
         // Loopback
-
         assertFalse((Boolean) method.invoke(parserService, "::1"));
-
         assertFalse((Boolean) method.invoke(parserService, "127.0.0.1"));
 
-
-
         // Private IPv4
-
         assertFalse((Boolean) method.invoke(parserService, "10.0.0.1"));
-
         assertFalse((Boolean) method.invoke(parserService, "172.16.0.1"));
-
         assertFalse((Boolean) method.invoke(parserService, "192.168.1.1"));
 
-
-
         // Unique Local IPv6 (fc00::/7)
-
         assertFalse((Boolean) method.invoke(parserService, "fc00::1"));
-
         assertFalse((Boolean) method.invoke(parserService, "fdff:ffff::1"));
 
-
-
         // Link Local IPv6 (fe80::/10)
-
         assertFalse((Boolean) method.invoke(parserService, "fe80::1"));
 
-
-
         // Documentation IPv6 (2001:db8::/32)
-
         assertFalse((Boolean) method.invoke(parserService, "2001:db8::1"));
 
-
-
         // IPv4-mapped IPv6 (::ffff:0:0/96)
-
-        assertFalse((Boolean) method.invoke(parserService, "::ffff:192.168.1.1"));
-
-
+        assertFalse((Boolean) method.invoke(
+                parserService,
+                "::ffff:192.168.1.1"
+        ));
 
         // Public IPv6
+        assertTrue((Boolean) method.invoke(
+                parserService,
+                "2001:4860:4860::8888"
+        ));
 
-        assertTrue((Boolean) method.invoke(parserService, "2001:4860:4860::8888"));
-
-        assertTrue((Boolean) method.invoke(parserService, "2606:4700:4700::1111"));
-
-
+        assertTrue((Boolean) method.invoke(
+                parserService,
+                "2606:4700:4700::1111"
+        ));
 
         // Public IPv4
-
-        assertTrue((Boolean) method.invoke(parserService, "8.8.8.8"));
-
+        assertTrue((Boolean) method.invoke(
+                parserService,
+                "8.8.8.8"
+        ));
     }
-
-
 
     // -----------------------------------------------------------------------
     // Sender IP Intelligence tests
@@ -376,7 +448,8 @@ class EmailParserServiceTest {
 
     @Test
     void senderIp_xOriginatingIp_publicIp_returnsConfirmed() throws Exception {
-        EmailParsedResult result = parseFixture("x-originating-ip-email.eml");
+        EmailParsedResult result =
+                parseFixture("x-originating-ip-email.eml");
 
         assertEquals("8.8.8.8", result.getSenderIp());
         assertEquals("X-Originating-IP", result.getSenderIpSource());
@@ -385,7 +458,8 @@ class EmailParserServiceTest {
 
     @Test
     void senderIp_xClientIp_publicIp_returnsConfirmed() throws Exception {
-        EmailParsedResult result = parseFixture("x-client-ip-email.eml");
+        EmailParsedResult result =
+                parseFixture("x-client-ip-email.eml");
 
         assertEquals("1.1.1.1", result.getSenderIp());
         assertEquals("X-Client-IP", result.getSenderIpSource());
@@ -394,7 +468,8 @@ class EmailParserServiceTest {
 
     @Test
     void senderIp_xSenderIp_publicIp_returnsConfirmed() throws Exception {
-        EmailParsedResult result = parseFixture("x-sender-ip-email.eml");
+        EmailParsedResult result =
+                parseFixture("x-sender-ip-email.eml");
 
         assertEquals("8.8.4.4", result.getSenderIp());
         assertEquals("X-Sender-IP", result.getSenderIpSource());
@@ -403,7 +478,8 @@ class EmailParserServiceTest {
 
     @Test
     void senderIp_xRealIp_publicIp_returnsConfirmed() throws Exception {
-        EmailParsedResult result = parseFixture("x-real-ip-email.eml");
+        EmailParsedResult result =
+                parseFixture("x-real-ip-email.eml");
 
         assertEquals("8.8.4.4", result.getSenderIp());
         assertEquals("X-Real-IP", result.getSenderIpSource());
@@ -412,9 +488,11 @@ class EmailParserServiceTest {
 
     @Test
     void senderIp_gmailRelayOnly_noExplicitHeaders_returnsNotExposed() throws Exception {
-        EmailParsedResult result = parseFixture("gmail-relay-only-email.eml");
+        EmailParsedResult result =
+                parseFixture("gmail-relay-only-email.eml");
 
-        // No explicit client-origin headers present — sender device IP is not exposed.
+        // No explicit client-origin headers present —
+        // sender device IP is not exposed.
         assertNull(result.getSenderIp());
         assertEquals("NOT_EXPOSED", result.getSenderIpSource());
         assertEquals("NOT_EXPOSED", result.getSenderIpConfidence());
@@ -430,7 +508,8 @@ class EmailParserServiceTest {
 
     @Test
     void senderIp_receivedSpfClientIp_spfPass_populatesConnectingIpOnly() throws Exception {
-        EmailParsedResult result = parseFixture("received-spf-client-ip-pass-email.eml");
+        EmailParsedResult result =
+                parseFixture("received-spf-client-ip-pass-email.eml");
 
         // Received-SPF must NOT populate senderIp.
         assertNull(result.getSenderIp());
@@ -445,7 +524,8 @@ class EmailParserServiceTest {
 
     @Test
     void senderIp_receivedSpfClientIp_spfFail_populatesConnectingIpOnly() throws Exception {
-        EmailParsedResult result = parseFixture("received-spf-client-ip-fail-email.eml");
+        EmailParsedResult result =
+                parseFixture("received-spf-client-ip-fail-email.eml");
 
         // Received-SPF must NOT populate senderIp.
         assertNull(result.getSenderIp());
@@ -458,9 +538,11 @@ class EmailParserServiceTest {
 
     @Test
     void senderIp_xOriginatingIpPrivate_fallsThrough_returnsNotExposed() throws Exception {
-        EmailParsedResult result = parseFixture("x-originating-ip-private-email.eml");
+        EmailParsedResult result =
+                parseFixture("x-originating-ip-private-email.eml");
 
-        // 192.168.1.10 is private — must be rejected; no fallback available.
+        // 192.168.1.10 is private — must be rejected;
+        // no fallback available.
         assertNull(result.getSenderIp());
         assertEquals("NOT_EXPOSED", result.getSenderIpSource());
         assertEquals("NOT_EXPOSED", result.getSenderIpConfidence());
@@ -468,7 +550,8 @@ class EmailParserServiceTest {
 
     @Test
     void senderIp_conflictingExplicitHeaders_xOriginatingIpWins() throws Exception {
-        EmailParsedResult result = parseFixture("conflicting-explicit-headers-email.eml");
+        EmailParsedResult result =
+                parseFixture("conflicting-explicit-headers-email.eml");
 
         // X-Originating-IP has higher priority than X-Client-IP.
         assertEquals("8.8.8.8", result.getSenderIp());
@@ -478,24 +561,37 @@ class EmailParserServiceTest {
 
     @Test
     void senderIp_xOriginatingIpIPv6Public_returnsConfirmed() throws Exception {
-        EmailParsedResult result = parseFixture("x-originating-ip-ipv6-email.eml");
+        EmailParsedResult result =
+                parseFixture("x-originating-ip-ipv6-email.eml");
 
-        assertEquals("2606:4700:4700::1111", result.getSenderIp());
-        assertEquals("X-Originating-IP", result.getSenderIpSource());
-        assertEquals("CONFIRMED", result.getSenderIpConfidence());
+        assertEquals(
+                "2606:4700:4700::1111",
+                result.getSenderIp()
+        );
+        assertEquals(
+                "X-Originating-IP",
+                result.getSenderIpSource()
+        );
+        assertEquals(
+                "CONFIRMED",
+                result.getSenderIpConfidence()
+        );
     }
 
     @Test
     void senderIp_receivedChainAlone_doesNotPopulateSenderIp() throws Exception {
-        // multiple-received-email.eml has only Received headers, no explicit client-origin headers.
-        // senderIp must remain null; originatingIp gets the Received-chain value.
-        EmailParsedResult result = parseFixture("multiple-received-email.eml");
+        // multiple-received-email.eml has only Received headers,
+        // no explicit client-origin headers.
+        // senderIp must remain null;
+        // originatingIp gets the Received-chain value.
+        EmailParsedResult result =
+                parseFixture("multiple-received-email.eml");
 
         assertNull(result.getSenderIp());
         assertEquals("NOT_EXPOSED", result.getSenderIpSource());
         assertEquals("NOT_EXPOSED", result.getSenderIpConfidence());
+
         // originatingIp should still be populated from the Received chain.
         assertNotNull(result.getOriginatingIp());
     }
-
 }

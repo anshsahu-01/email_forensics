@@ -173,6 +173,8 @@ export default function CaseDetailsPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [downloadingReport, setDownloadingReport] = useState(false);
+
   const [activeTab, setActiveTab] = useState<
     'overview' | 'ai' | 'routing' | 'indicators' | 'raw'
   >('overview');
@@ -200,6 +202,66 @@ export default function CaseDetailsPage({
     void loadCase();
   }, [id]);
 
+  /**
+   * Download the forensic PDF report for the current case.
+   *
+   * Flow:
+   * Frontend
+   *   -> Spring Boot
+   *   -> ReportController
+   *   -> ReportService
+   *   -> PDF bytes
+   *   -> Browser download
+   */
+  const handleDownloadReport = async () => {
+    try {
+      setDownloadingReport(true);
+
+      const response = await fetch(
+        `http://localhost:5000/api/v1/cases/${id}/report`,
+        {
+          method: 'GET',
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Report generation failed with status ${response.status}`
+        );
+      }
+
+      const blob = await response.blob();
+
+      if (blob.size === 0) {
+        throw new Error('Generated PDF is empty.');
+      }
+
+      const downloadUrl = window.URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+
+      link.href = downloadUrl;
+      link.download = `email-forensic-report-${id}.pdf`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      console.error(
+        'Failed to download forensic report:',
+        err
+      );
+
+      window.alert(
+        'Forensic PDF could not be generated. Please check the backend logs.'
+      );
+    } finally {
+      setDownloadingReport(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-white">
@@ -224,7 +286,8 @@ export default function CaseDetailsPage({
         </h1>
 
         <p className="mt-4 max-w-md text-sm font-medium uppercase tracking-tight text-slate-500">
-          {error || 'The requested forensic report could not be retrieved.'}
+          {error ||
+            'The requested forensic report could not be retrieved.'}
         </p>
 
         <Link
@@ -288,7 +351,9 @@ export default function CaseDetailsPage({
 
                 <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
                   Investigation log active since{' '}
-                  {new Date(emailCase.createdAt).toLocaleString()}
+                  {new Date(
+                    emailCase.createdAt
+                  ).toLocaleString()}
                 </p>
 
               </div>
@@ -297,12 +362,23 @@ export default function CaseDetailsPage({
 
             <div className="flex items-center gap-4">
 
+              {/* PDF EXPORT */}
+
               <button
                 type="button"
-                className="inline-flex items-center gap-2 border-2 border-slate-200 bg-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-900 transition-all hover:border-slate-900"
+                onClick={handleDownloadReport}
+                disabled={downloadingReport}
+                className="inline-flex items-center gap-2 border-2 border-slate-200 bg-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-900 transition-all hover:border-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <Download className="h-4 w-4" />
-                Export
+                {downloadingReport ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+
+                {downloadingReport
+                  ? 'Generating...'
+                  : 'Export'}
               </button>
 
               <button
@@ -412,7 +488,9 @@ export default function CaseDetailsPage({
                   : 'bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
-              {tab === 'ai' ? 'AI Forensics' : tab}
+              {tab === 'ai'
+                ? 'AI Forensics'
+                : tab}
             </button>
 
           ))}
@@ -430,7 +508,9 @@ export default function CaseDetailsPage({
 
             <div className="space-y-10 lg:col-span-2">
 
-              <CaseHeader emailCase={emailCase} />
+              <CaseHeader
+                emailCase={emailCase}
+              />
 
               <AuthenticationSection
                 header={emailCase.header}
@@ -595,7 +675,8 @@ export default function CaseDetailsPage({
                             </p>
 
                             <p className="break-all font-mono text-[10px] font-bold text-slate-700">
-                              {value || 'NOT AVAILABLE'}
+                              {value ||
+                                'NOT AVAILABLE'}
                             </p>
 
                           </div>
